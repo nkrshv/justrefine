@@ -2,13 +2,11 @@
 
 import { useMemo, useState } from "react";
 import { cn, formatDate } from "@/lib/cn";
-import { URGENCY_ORDER } from "@/lib/constants";
+import { compareRequests } from "@/lib/sorting";
 import type { NewRequestInput } from "@/lib/store";
-import type { RequestItem } from "@/lib/types";
-import { Tag, UrgencyBadge } from "./Badge";
+import type { RequestItem, SortKey } from "@/lib/types";
+import { DeadlineBadge, Tag, UrgencyBadge } from "./Badge";
 import { RequestForm } from "./RequestForm";
-
-type SortKey = "urgency" | "newest" | "oldest" | "source";
 
 export function Inbox({
   requests,
@@ -59,23 +57,7 @@ export function Inbox({
       return true;
     });
 
-    return list.sort((a, b) => {
-      switch (sort) {
-        case "urgency":
-          return (
-            URGENCY_ORDER[a.urgency] - URGENCY_ORDER[b.urgency] ||
-            b.createdAt - a.createdAt
-          );
-        case "newest":
-          return b.createdAt - a.createdAt;
-        case "oldest":
-          return a.createdAt - b.createdAt;
-        case "source":
-          return a.source.localeCompare(b.source) || b.createdAt - a.createdAt;
-        default:
-          return 0;
-      }
-    });
+    return list.sort((a, b) => compareRequests(a, b, sort));
   }, [inbox, search, urgencyFilter, sourceFilter, tagFilter, sort]);
 
   const selectClass =
@@ -91,14 +73,14 @@ export function Inbox({
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <h2 className="text-sm font-semibold text-slate-900">
-              Inbox
+              Waiting to refine
               <span className="ml-2 rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-600">
                 {inbox.length}
               </span>
             </h2>
             <p className="mt-0.5 text-xs text-slate-500">
               {filtered.length === inbox.length
-                ? "Everything waiting to be triaged."
+                ? "New requests land here, ready for your next refinement."
                 : `${filtered.length} of ${inbox.length} shown.`}
             </p>
           </div>
@@ -159,6 +141,7 @@ export function Inbox({
             className={selectClass}
           >
             <option value="urgency">Sort: Urgency</option>
+            <option value="deadline">Sort: Deadline</option>
             <option value="newest">Sort: Newest</option>
             <option value="oldest">Sort: Oldest</option>
             <option value="source">Sort: Source</option>
@@ -189,7 +172,10 @@ export function Inbox({
                       </p>
                     )}
                   </div>
-                  <UrgencyBadge urgency={r.urgency} />
+                  <div className="flex shrink-0 flex-col items-end gap-1">
+                    <UrgencyBadge urgency={r.urgency} />
+                    <DeadlineBadge deadline={r.deadline} />
+                  </div>
                 </div>
 
                 <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-slate-400">

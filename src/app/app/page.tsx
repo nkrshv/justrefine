@@ -37,10 +37,10 @@ export default function AppPage() {
         <div className="mx-auto flex max-w-5xl items-center justify-between px-4 py-3">
           <Link href="/" className="flex items-center gap-2">
             <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-indigo-600 text-sm font-bold text-white">
-              R
+              jr
             </span>
             <span className="text-sm font-semibold text-slate-900">
-              RefineFlow
+              justrefine
             </span>
           </Link>
 
@@ -48,7 +48,7 @@ export default function AppPage() {
             <TabButton
               active={tab === "inbox"}
               onClick={() => setTab("inbox")}
-              label="Inbox"
+              label="Capture"
               count={inboxCount}
             />
             <TabButton
@@ -93,6 +93,7 @@ export default function AppPage() {
           <RefinementMode
             requests={requests}
             onResolve={resolve}
+            onDelete={deleteRequest}
             onExit={() => setTab("refined")}
           />
         ) : (

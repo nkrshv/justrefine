@@ -29,9 +29,9 @@ export default function Home() {
       <header className="mx-auto flex max-w-5xl items-center justify-between px-4 py-5">
         <div className="flex items-center gap-2">
           <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-indigo-600 text-sm font-bold text-white">
-            R
+            jr
           </span>
-          <span className="font-semibold">RefineFlow</span>
+          <span className="font-semibold">justrefine</span>
         </div>
         <Link
           href="/app"
@@ -112,7 +112,7 @@ export default function Home() {
               href="/app"
               className="rounded-lg bg-indigo-600 px-6 py-3 text-sm font-semibold text-white transition hover:bg-indigo-500"
             >
-              Open RefineFlow →
+              Open justrefine →
             </Link>
           </div>
         </section>
@@ -120,7 +120,7 @@ export default function Home() {
 
       <footer className="border-t border-slate-100">
         <div className="mx-auto max-w-5xl px-4 py-8 text-center text-xs text-slate-400">
-          RefineFlow — built for product teams who run great refinement sessions.
+justrefine — built for product teams who run great refinement sessions.
         </div>
       </footer>
     </div>

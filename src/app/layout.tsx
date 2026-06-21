@@ -13,7 +13,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "RefineFlow — Triage stakeholder requests into a clean backlog",
+  title: "justrefine — Triage stakeholder requests into a clean backlog",
   description:
     "Capture stakeholder requests and meeting notes, prioritize by urgency, and refine them one decision at a time. Built for product owners and managers.",
 };

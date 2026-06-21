@@ -17,6 +17,7 @@ export function RequestForm({
   const [details, setDetails] = useState("");
   const [source, setSource] = useState("");
   const [urgency, setUrgency] = useState<Urgency>("medium");
+  const [deadline, setDeadline] = useState("");
   const [tags, setTags] = useState("");
 
   function submit(e: React.FormEvent) {
@@ -27,6 +28,7 @@ export function RequestForm({
       details,
       source,
       urgency,
+      deadline,
       tags: tags
         .split(",")
         .map((t) => t.trim().replace(/^#/, ""))
@@ -36,6 +38,7 @@ export function RequestForm({
     setDetails("");
     setSource("");
     setUrgency("medium");
+    setDeadline("");
     setTags("");
   }
 
@@ -77,6 +80,18 @@ export function RequestForm({
             onChange={(e) => setTags(e.target.value)}
             placeholder="Tags, comma separated"
             className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+          />
+        </div>
+
+        <div>
+          <span className="mb-1.5 block text-xs font-medium text-slate-600">
+            Deadline (optional)
+          </span>
+          <input
+            type="date"
+            value={deadline}
+            onChange={(e) => setDeadline(e.target.value)}
+            className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-900 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
           />
         </div>
 

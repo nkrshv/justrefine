@@ -1,9 +1,9 @@
 "use client";
 
 import { useSyncExternalStore } from "react";
-import type { ActionType, RequestItem, Urgency } from "./types";
+import type { RequestItem, ResolveInput, Urgency } from "./types";
 
-const STORAGE_KEY = "refineflow:requests:v1";
+const STORAGE_KEY = "justrefine:requests:v1";
 const EMPTY: RequestItem[] = [];
 
 let store: RequestItem[] | null = null;
@@ -17,13 +17,38 @@ function createId(): string {
   return `${Date.now()}-${Math.random().toString(36).slice(2)}`;
 }
 
+function normalize(r: Partial<RequestItem>): RequestItem {
+  return {
+    id: r.id ?? createId(),
+    title: r.title ?? "",
+    details: r.details ?? "",
+    source: r.source ?? "",
+    urgency: r.urgency ?? "medium",
+    deadline: r.deadline ?? "",
+    tags: r.tags ?? [],
+    status: r.status ?? "inbox",
+    action: r.action ?? null,
+    outcomeNote: r.outcomeNote ?? "",
+    reason: r.reason ?? "",
+    referTo: r.referTo ?? "",
+    spoc: r.spoc ?? "",
+    spocEmail: r.spocEmail ?? "",
+    storyRole: r.storyRole ?? "",
+    storyWant: r.storyWant ?? "",
+    storyBenefit: r.storyBenefit ?? "",
+    acceptance: r.acceptance ?? "",
+    createdAt: r.createdAt ?? Date.now(),
+    refinedAt: r.refinedAt ?? null,
+  };
+}
+
 function loadRequests(): RequestItem[] {
   if (typeof window === "undefined") return EMPTY;
   try {
     const raw = window.localStorage.getItem(STORAGE_KEY);
     if (!raw) return [];
-    const parsed = JSON.parse(raw) as RequestItem[];
-    return Array.isArray(parsed) ? parsed : [];
+    const parsed = JSON.parse(raw) as Partial<RequestItem>[];
+    return Array.isArray(parsed) ? parsed.map(normalize) : [];
   } catch {
     return [];
   }
@@ -67,24 +92,21 @@ export interface NewRequestInput {
   details: string;
   source: string;
   urgency: Urgency;
+  deadline: string;
   tags: string[];
 }
 
 function addRequest(input: NewRequestInput): void {
-  const item: RequestItem = {
-    id: createId(),
+  const item = normalize({
     title: input.title.trim(),
     details: input.details.trim(),
     source: input.source.trim(),
     urgency: input.urgency,
+    deadline: input.deadline,
     tags: input.tags,
     status: "inbox",
-    action: null,
-    outcomeNote: "",
-    referTo: "",
     createdAt: Date.now(),
-    refinedAt: null,
-  };
+  });
   write([item, ...read()]);
 }
 
@@ -92,21 +114,14 @@ function deleteRequest(id: string): void {
   write(read().filter((r) => r.id !== id));
 }
 
-function resolve(
-  id: string,
-  action: ActionType,
-  outcomeNote: string,
-  referTo: string,
-): void {
+function resolve(id: string, input: ResolveInput): void {
   write(
     read().map((r) =>
       r.id === id
         ? {
             ...r,
+            ...input,
             status: "refined" as const,
-            action,
-            outcomeNote,
-            referTo,
             refinedAt: Date.now(),
           }
         : r,
@@ -118,7 +133,12 @@ function reopen(id: string): void {
   write(
     read().map((r) =>
       r.id === id
-        ? { ...r, status: "inbox" as const, action: null, refinedAt: null }
+        ? {
+            ...r,
+            status: "inbox" as const,
+            action: null,
+            refinedAt: null,
+          }
         : r,
     ),
   );
@@ -150,21 +170,25 @@ export function useRequests() {
   };
 }
 
+function isoInDays(days: number): string {
+  const d = new Date();
+  d.setDate(d.getDate() + days);
+  return d.toISOString().slice(0, 10);
+}
+
 function sampleRequests(): RequestItem[] {
   const now = Date.now();
-  const base: Array<Omit<RequestItem, "id" | "createdAt">> = [
+  const base: Array<Partial<RequestItem>> = [
     {
       title: "Add SEPA instant payments to the transfer screen",
       details:
         "Compliance and several retail customers asked for instant euro transfers. Needs a check with the payments squad on rails.",
       source: "Head of Retail",
+      spoc: "Anna Berg",
+      spocEmail: "anna.berg@example.com",
       urgency: "high",
+      deadline: isoInDays(14),
       tags: ["payments", "compliance"],
-      status: "inbox",
-      action: null,
-      outcomeNote: "",
-      referTo: "",
-      refinedAt: null,
     },
     {
       title: "Dark mode for the mobile app",
@@ -173,41 +197,28 @@ function sampleRequests(): RequestItem[] {
       source: "App Store reviews",
       urgency: "low",
       tags: ["mobile", "ux"],
-      status: "inbox",
-      action: null,
-      outcomeNote: "",
-      referTo: "",
-      refinedAt: null,
     },
     {
       title: "Fraud alerts fire too often for business accounts",
       details:
         "Ops team is flooded with false positives since the last release. Likely a thresholds issue.",
       source: "Fraud Ops",
+      spoc: "Marco Rossi",
+      spocEmail: "marco.rossi@example.com",
       urgency: "critical",
+      deadline: isoInDays(3),
       tags: ["fraud", "bug"],
-      status: "inbox",
-      action: null,
-      outcomeNote: "",
-      referTo: "",
-      refinedAt: null,
     },
     {
       title: "Export transactions to accounting software (DATEV)",
       details: "Frequent ask from SME customers during onboarding calls.",
       source: "Sales",
       urgency: "medium",
+      deadline: isoInDays(30),
       tags: ["integrations", "sme"],
-      status: "inbox",
-      action: null,
-      outcomeNote: "",
-      referTo: "",
-      refinedAt: null,
     },
   ];
-  return base.map((b, i) => ({
-    ...b,
-    id: createId(),
-    createdAt: now - i * 60000,
-  }));
+  return base.map((b, i) =>
+    normalize({ ...b, status: "inbox", createdAt: now - i * 60000 }),
+  );
 }

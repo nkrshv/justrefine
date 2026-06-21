@@ -3,8 +3,9 @@
 import { useMemo } from "react";
 import { formatDate } from "@/lib/cn";
 import { ACTION_META, ACTION_ORDER } from "@/lib/constants";
+import { getNextAction, userStoryText } from "@/lib/followups";
 import type { ActionType, RequestItem } from "@/lib/types";
-import { Tag, UrgencyBadge } from "./Badge";
+import { DeadlineBadge, Tag, UrgencyBadge } from "./Badge";
 
 export function Refined({
   requests,
@@ -83,14 +84,19 @@ export function Refined({
                     </span>
                   </p>
                 )}
-                {r.outcomeNote && (
+                {(r.reason || r.outcomeNote) && (
                   <p className="mt-1 text-xs italic text-slate-500">
-                    “{r.outcomeNote}”
+                    “{r.reason || r.outcomeNote}”
                   </p>
                 )}
               </div>
-              <UrgencyBadge urgency={r.urgency} />
+              <div className="flex shrink-0 flex-col items-end gap-1">
+                <UrgencyBadge urgency={r.urgency} />
+                <DeadlineBadge deadline={r.deadline} />
+              </div>
             </div>
+
+            <NextActionRow item={r} />
 
             <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-slate-400">
               {r.source && (
@@ -118,6 +124,32 @@ export function Refined({
           </article>
         ))}
       </div>
+    </div>
+  );
+}
+
+function NextActionRow({ item }: { item: RequestItem }) {
+  const next = getNextAction(item);
+  if (!next) return null;
+  return (
+    <div className="mt-3 rounded-lg border border-slate-100 bg-slate-50 p-3">
+      <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+        Next action
+      </p>
+      <p className="mt-1 text-sm text-slate-700">{next.text}</p>
+      {item.action === "user_story" && (
+        <pre className="mt-2 whitespace-pre-wrap rounded-md bg-white p-2 text-xs text-slate-600">
+          {userStoryText(item)}
+        </pre>
+      )}
+      {next.mailto && (
+        <a
+          href={next.mailto}
+          className="mt-2 inline-flex items-center rounded-md bg-indigo-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-indigo-500"
+        >
+          Open email draft
+        </a>
+      )}
     </div>
   );
 }
