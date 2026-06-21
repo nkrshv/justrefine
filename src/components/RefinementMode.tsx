@@ -1,12 +1,12 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { cn } from "@/lib/cn";
 import { ACTION_META, ACTION_ORDER } from "@/lib/constants";
 import { getNextAction, userStoryText } from "@/lib/followups";
 import { compareRequests } from "@/lib/sorting";
 import type { ActionType, RequestItem, ResolveInput } from "@/lib/types";
-import { DeadlineBadge, Tag, UrgencyBadge } from "./Badge";
+import { DeadlineBadge, Priority, Tag } from "./Badge";
 
 type RefineSort = "urgency" | "deadline";
 
@@ -53,15 +53,15 @@ export function RefinementMode({
   if (inbox.length === 0) {
     return (
       <CenteredCard>
-        <h2 className="text-lg font-semibold text-slate-900">
+        <h2 className="text-lg font-semibold text-zinc-900">
           Nothing to refine
         </h2>
-        <p className="mt-1 text-sm text-slate-500">
+        <p className="mt-1 text-sm text-zinc-500">
           Your inbox is empty. Capture some requests first.
         </p>
         <button
           onClick={onExit}
-          className="mt-5 rounded-lg bg-slate-900 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-700"
+          className="mt-5 rounded-lg bg-accent px-4 py-2 text-sm font-semibold text-white transition hover:bg-accent-hover active:scale-[0.98]"
         >
           Back to capture
         </button>
@@ -72,13 +72,21 @@ export function RefinementMode({
   if (!current) {
     return (
       <CenteredCard>
-        <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-emerald-100 text-2xl">
-          ✓
+        <div className="jr-pop mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-emerald-100 text-emerald-600">
+          <svg viewBox="0 0 20 20" className="h-6 w-6" fill="none">
+            <path
+              d="m5 10.5 3.2 3.2L15 6.5"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          </svg>
         </div>
-        <h2 className="mt-3 text-lg font-semibold text-slate-900">
+        <h2 className="mt-3 text-lg font-semibold text-zinc-900">
           {resolvedCount > 0 ? "Refinement complete" : "All caught up"}
         </h2>
-        <p className="mt-1 text-sm text-slate-500">
+        <p className="mt-1 text-sm text-zinc-500">
           {resolvedCount > 0
             ? `You triaged ${resolvedCount} ${
                 resolvedCount === 1 ? "request" : "requests"
@@ -88,14 +96,14 @@ export function RefinementMode({
         {skippedCount > 0 && (
           <button
             onClick={() => setSkipped(new Set())}
-            className="mt-4 block w-full rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+            className="mt-4 block w-full rounded-lg border border-zinc-200 bg-white px-4 py-2 text-sm font-semibold text-zinc-700 transition hover:bg-zinc-50 active:scale-[0.98]"
           >
             Bring back {skippedCount} skipped
           </button>
         )}
         <button
           onClick={onExit}
-          className="mt-2 rounded-lg bg-slate-900 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-700"
+          className="mt-2 rounded-lg bg-accent px-4 py-2 text-sm font-semibold text-white transition hover:bg-accent-hover active:scale-[0.98]"
         >
           Go to Refined
         </button>
@@ -112,14 +120,13 @@ export function RefinementMode({
       <div className="flex items-center justify-between gap-4">
         <button
           onClick={onExit}
-          className="text-sm font-medium text-slate-500 hover:text-slate-800"
+          className="flex items-center gap-1.5 text-sm font-medium text-zinc-500 transition hover:text-zinc-900"
         >
           ← Exit
+          <kbd>Esc</kbd>
         </button>
-        <div className="flex items-center gap-2">
-          <span className="mr-1 text-xs font-medium text-slate-400">
-            Sort by
-          </span>
+        <div className="flex items-center gap-1.5">
+          <span className="mr-1 text-xs font-medium text-zinc-400">Sort by</span>
           <SortToggle
             active={sort === "urgency"}
             onClick={() => setSort("urgency")}
@@ -134,13 +141,13 @@ export function RefinementMode({
       </div>
 
       <div className="mt-3 flex items-center gap-3">
-        <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-slate-100">
+        <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-zinc-100">
           <div
-            className="h-full rounded-full bg-indigo-600 transition-all"
+            className="h-full rounded-full bg-accent transition-all duration-500"
             style={{ width: `${progress}%` }}
           />
         </div>
-        <span className="text-xs font-medium text-slate-500">
+        <span className="text-xs font-medium text-zinc-500">
           {remaining.length} left
         </span>
       </div>
@@ -151,24 +158,27 @@ export function RefinementMode({
         onResolve={handleResolve}
         onSkip={handleSkip}
         onDelete={onDelete}
+        onExit={onExit}
       />
     </div>
   );
 }
 
 const fieldClass =
-  "w-full rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20";
+  "w-full rounded-lg border border-zinc-200 px-3 py-2 text-sm text-zinc-900 placeholder:text-zinc-400 transition focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/15";
 
 function RefineCard({
   item,
   onResolve,
   onSkip,
   onDelete,
+  onExit,
 }: {
   item: RequestItem;
   onResolve: (id: string, input: ResolveInput) => void;
   onSkip: (id: string) => void;
   onDelete: (id: string) => void;
+  onExit: () => void;
 }) {
   const [action, setAction] = useState<ActionType | null>(item.action);
   const [outcomeNote, setOutcomeNote] = useState(item.outcomeNote);
@@ -181,18 +191,32 @@ function RefineCard({
   const [storyBenefit, setStoryBenefit] = useState(item.storyBenefit);
   const [acceptance, setAcceptance] = useState(item.acceptance);
 
-  const input: ResolveInput = {
-    action: action ?? "done",
-    outcomeNote: outcomeNote.trim(),
-    reason: reason.trim(),
-    referTo: referTo.trim(),
-    spoc: spoc.trim(),
-    spocEmail: spocEmail.trim(),
-    storyRole: storyRole.trim(),
-    storyWant: storyWant.trim(),
-    storyBenefit: storyBenefit.trim(),
-    acceptance: acceptance.trim(),
-  };
+  const input: ResolveInput = useMemo(
+    () => ({
+      action: action ?? "done",
+      outcomeNote: outcomeNote.trim(),
+      reason: reason.trim(),
+      referTo: referTo.trim(),
+      spoc: spoc.trim(),
+      spocEmail: spocEmail.trim(),
+      storyRole: storyRole.trim(),
+      storyWant: storyWant.trim(),
+      storyBenefit: storyBenefit.trim(),
+      acceptance: acceptance.trim(),
+    }),
+    [
+      action,
+      outcomeNote,
+      reason,
+      referTo,
+      spoc,
+      spocEmail,
+      storyRole,
+      storyWant,
+      storyBenefit,
+      acceptance,
+    ],
+  );
 
   const preview = action ? getNextAction({ ...item, ...input }) : null;
 
@@ -213,40 +237,84 @@ function RefineCard({
     }
   }
 
+  const valid = isValid();
+
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      const el = document.activeElement as HTMLElement | null;
+      const typing =
+        !!el &&
+        (el.tagName === "INPUT" ||
+          el.tagName === "TEXTAREA" ||
+          el.isContentEditable);
+
+      if (e.key === "Escape") {
+        if (typing) el?.blur();
+        else onExit();
+        return;
+      }
+      if ((e.metaKey || e.ctrlKey) && e.key === "Enter") {
+        e.preventDefault();
+        if (action && valid) onResolve(item.id, input);
+        return;
+      }
+      if (typing || e.metaKey || e.ctrlKey || e.altKey) return;
+
+      if (e.key >= "1" && e.key <= "5") {
+        const idx = Number(e.key) - 1;
+        if (idx < ACTION_ORDER.length) {
+          e.preventDefault();
+          setAction(ACTION_ORDER[idx]);
+        }
+      } else if (e.key === "s" || e.key === "S") {
+        e.preventDefault();
+        onSkip(item.id);
+      } else if (e.key === "Delete") {
+        e.preventDefault();
+        onDelete(item.id);
+      } else if (e.key === "Enter") {
+        e.preventDefault();
+        if (action && valid) onResolve(item.id, input);
+      }
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [item.id, action, valid, input, onResolve, onExit, onSkip, onDelete]);
+
   return (
-    <div className="mt-5 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+    <div className="jr-card-enter mt-5 rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
       <div className="flex items-start justify-between gap-3">
-        <h2 className="text-lg font-semibold leading-snug text-slate-900">
+        <h2 className="text-lg font-semibold leading-snug text-zinc-900">
           {item.title}
         </h2>
-        <div className="flex shrink-0 flex-col items-end gap-1">
-          <UrgencyBadge urgency={item.urgency} />
+        <div className="flex shrink-0 flex-col items-end gap-1.5">
+          <Priority urgency={item.urgency} />
           <DeadlineBadge deadline={item.deadline} />
         </div>
       </div>
 
       {item.details && (
-        <p className="mt-3 whitespace-pre-wrap text-sm text-slate-600">
+        <p className="mt-3 whitespace-pre-wrap text-sm text-zinc-600">
           {item.details}
         </p>
       )}
 
-      <div className="mt-4 flex flex-wrap items-center gap-2 text-xs text-slate-400">
+      <div className="mt-4 flex flex-wrap items-center gap-2 text-xs text-zinc-400">
         {item.source && (
-          <span className="font-medium text-slate-500">{item.source}</span>
+          <span className="font-medium text-zinc-500">{item.source}</span>
         )}
         {item.tags.map((t) => (
           <Tag key={t} label={t} />
         ))}
       </div>
 
-      <hr className="my-5 border-slate-100" />
+      <hr className="my-5 border-zinc-100" />
 
-      <p className="mb-2 text-sm font-medium text-slate-700">
+      <p className="mb-2 text-sm font-medium text-zinc-700">
         What&apos;s the action?
       </p>
       <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-        {ACTION_ORDER.map((a) => {
+        {ACTION_ORDER.map((a, i) => {
           const meta = ACTION_META[a];
           const active = action === a;
           return (
@@ -254,25 +322,41 @@ function RefineCard({
               key={a}
               onClick={() => setAction(a)}
               className={cn(
-                "rounded-xl border px-3 py-2.5 text-left transition",
+                "group flex items-start gap-2.5 rounded-xl border px-3 py-2.5 text-left transition active:scale-[0.99]",
                 active
-                  ? "border-indigo-500 bg-indigo-50 ring-2 ring-indigo-500/20"
-                  : "border-slate-200 bg-white hover:border-slate-300",
+                  ? "border-accent bg-accent/[0.06] ring-2 ring-accent/20"
+                  : "border-zinc-200 bg-white hover:border-zinc-300 hover:bg-zinc-50",
               )}
             >
-              <span className="block text-sm font-semibold text-slate-900">
-                {meta.label}
+              <span
+                className={cn(
+                  "mt-0.5 h-2 w-2 shrink-0 rounded-full",
+                  meta.dot,
+                )}
+              />
+              <span className="min-w-0 flex-1">
+                <span className="block text-sm font-semibold text-zinc-900">
+                  {meta.label}
+                </span>
+                <span className="mt-0.5 block text-xs text-zinc-500">
+                  {meta.description}
+                </span>
               </span>
-              <span className="mt-0.5 block text-xs text-slate-500">
-                {meta.description}
-              </span>
+              <kbd
+                className={cn(
+                  "shrink-0 transition",
+                  active ? "" : "opacity-0 group-hover:opacity-100",
+                )}
+              >
+                {i + 1}
+              </kbd>
             </button>
           );
         })}
       </div>
 
       {action && (
-        <div className="mt-4 space-y-3 rounded-xl bg-slate-50 p-4">
+        <div className="jr-fade-in mt-4 space-y-3 rounded-xl bg-zinc-50 p-4">
           {action === "user_story" && (
             <>
               <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
@@ -372,20 +456,20 @@ function RefineCard({
           )}
 
           {preview && (
-            <div className="rounded-lg border border-indigo-100 bg-indigo-50/60 p-3">
-              <p className="text-xs font-semibold uppercase tracking-wide text-indigo-700">
+            <div className="rounded-lg border border-accent/20 bg-accent/[0.06] p-3">
+              <p className="text-xs font-semibold uppercase tracking-wide text-accent">
                 Next action
               </p>
-              <p className="mt-1 text-sm text-slate-700">{preview.text}</p>
+              <p className="mt-1 text-sm text-zinc-700">{preview.text}</p>
               {action === "user_story" && (
-                <pre className="mt-2 whitespace-pre-wrap rounded-md bg-white p-2 text-xs text-slate-600">
+                <pre className="mt-2 whitespace-pre-wrap rounded-md border border-zinc-200 bg-white p-2 text-xs text-zinc-600">
                   {userStoryText({ ...item, ...input })}
                 </pre>
               )}
               {preview.mailto && (
                 <a
                   href={preview.mailto}
-                  className="mt-2 inline-flex items-center rounded-md bg-indigo-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-indigo-500"
+                  className="mt-2 inline-flex items-center rounded-md bg-accent px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-accent-hover active:scale-[0.98]"
                 >
                   Open email draft
                 </a>
@@ -399,23 +483,24 @@ function RefineCard({
         <div className="flex items-center gap-3">
           <button
             onClick={() => onDelete(item.id)}
-            className="text-sm font-medium text-slate-400 hover:text-rose-500"
+            className="flex items-center gap-1.5 text-sm font-medium text-zinc-400 transition hover:text-rose-500"
           >
-            Delete
+            Delete <kbd>Del</kbd>
           </button>
           <button
             onClick={() => onSkip(item.id)}
-            className="text-sm font-medium text-slate-500 hover:text-slate-800"
+            className="flex items-center gap-1.5 text-sm font-medium text-zinc-500 transition hover:text-zinc-900"
           >
-            Skip
+            Skip <kbd>S</kbd>
           </button>
         </div>
         <button
-          onClick={() => action && isValid() && onResolve(item.id, input)}
-          disabled={!action || !isValid()}
-          className="rounded-lg bg-indigo-600 px-5 py-2 text-sm font-semibold text-white transition hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-40"
+          onClick={() => action && valid && onResolve(item.id, input)}
+          disabled={!action || !valid}
+          className="flex items-center gap-2 rounded-lg bg-accent px-5 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-accent-hover active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-40"
         >
           Save &amp; next →
+          <kbd className="border-white/20 bg-white/15 text-white/90">↵</kbd>
         </button>
       </div>
     </div>
@@ -437,7 +522,7 @@ function SpocFields({
 }) {
   return (
     <div>
-      <span className="mb-1.5 block text-xs font-medium text-slate-500">
+      <span className="mb-1.5 block text-xs font-medium text-zinc-500">
         {label}
       </span>
       <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
@@ -474,8 +559,8 @@ function SortToggle({
       className={cn(
         "rounded-md px-2.5 py-1 text-xs font-medium transition",
         active
-          ? "bg-slate-900 text-white"
-          : "bg-slate-100 text-slate-600 hover:bg-slate-200",
+          ? "bg-zinc-900 text-white"
+          : "bg-zinc-100 text-zinc-600 hover:bg-zinc-200",
       )}
     >
       {label}
@@ -485,7 +570,7 @@ function SortToggle({
 
 function CenteredCard({ children }: { children: React.ReactNode }) {
   return (
-    <div className="mx-auto max-w-md rounded-2xl border border-slate-200 bg-white p-8 text-center shadow-sm">
+    <div className="jr-card-enter mx-auto max-w-md rounded-2xl border border-zinc-200 bg-white p-8 text-center shadow-sm">
       {children}
     </div>
   );

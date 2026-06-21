@@ -35,36 +35,41 @@ export const URGENCY_META: Record<
 
 export const ACTION_META: Record<
   ActionType,
-  { label: string; short: string; badge: string; description: string }
+  { label: string; short: string; badge: string; dot: string; description: string }
 > = {
   user_story: {
     label: "Convert to user story",
     short: "User story",
-    badge: "bg-emerald-100 text-emerald-700 ring-emerald-600/20",
+    badge: "bg-emerald-50 text-emerald-700",
+    dot: "bg-emerald-500",
     description: "Ready to be written up and added to the backlog.",
   },
   declined: {
     label: "Decline",
     short: "Declined",
-    badge: "bg-rose-100 text-rose-700 ring-rose-600/20",
+    badge: "bg-rose-50 text-rose-700",
+    dot: "bg-rose-500",
     description: "Out of scope or not worth doing right now.",
   },
   referred: {
     label: "Refer to other team",
     short: "Referred",
-    badge: "bg-violet-100 text-violet-700 ring-violet-600/20",
+    badge: "bg-violet-50 text-violet-700",
+    dot: "bg-violet-500",
     description: "Belongs to another team or owner.",
   },
   unclear: {
     label: "Needs more info",
     short: "Unclear",
-    badge: "bg-amber-100 text-amber-700 ring-amber-600/20",
+    badge: "bg-amber-50 text-amber-700",
+    dot: "bg-amber-500",
     description: "Unclear — needs clarification before deciding.",
   },
   done: {
     label: "Already done / no action",
     short: "Done",
-    badge: "bg-sky-100 text-sky-700 ring-sky-600/20",
+    badge: "bg-sky-50 text-sky-700",
+    dot: "bg-sky-500",
     description: "Resolved already or no action required.",
   },
 };
