@@ -284,12 +284,14 @@ function FollowUpRow({
               </button>
             </>
           )}
-          <button
-            onClick={copyOutcome}
-            className="rounded-md px-2 py-1 text-xs font-medium text-zinc-500 transition hover:bg-zinc-100 hover:text-zinc-700"
-          >
-            Copy
-          </button>
+          {item.action !== "user_story" && (
+            <button
+              onClick={copyOutcome}
+              className="rounded-md px-2 py-1 text-xs font-medium text-zinc-500 transition hover:bg-zinc-100 hover:text-zinc-700"
+            >
+              Copy
+            </button>
+          )}
           <span className="ml-auto flex items-center gap-1 opacity-0 transition group-hover:opacity-100">
             <button
               onClick={onReopen}
