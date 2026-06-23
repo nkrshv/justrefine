@@ -11,12 +11,14 @@ import { RequestForm } from "./RequestForm";
 export function Inbox({
   requests,
   onAdd,
+  onAddMany,
   onDelete,
   onStartRefinement,
   onSeed,
 }: {
   requests: RequestItem[];
   onAdd: (input: NewRequestInput) => void;
+  onAddMany: (inputs: NewRequestInput[]) => void;
   onDelete: (id: string) => void;
   onStartRefinement: () => void;
   onSeed: () => void;
@@ -66,10 +68,10 @@ export function Inbox({
   return (
     <div className="grid grid-cols-1 gap-6 lg:grid-cols-[360px_1fr]">
       <div className="lg:sticky lg:top-6 lg:self-start">
-        <RequestForm onAdd={onAdd} />
+        <RequestForm onAdd={onAdd} onAddMany={onAddMany} />
       </div>
 
-      <div>
+      <div className="min-w-0">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <h2 className="flex items-center gap-2 text-sm font-semibold text-zinc-900">

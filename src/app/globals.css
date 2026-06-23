@@ -87,6 +87,63 @@ body {
   animation: jr-pop 0.3s cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 
+@keyframes jr-card-promote {
+  from {
+    opacity: 0.5;
+    transform: translateY(14px) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes jr-swipe-right {
+  to {
+    opacity: 0;
+    transform: translateX(60%) rotate(6deg);
+  }
+}
+
+@keyframes jr-swipe-left {
+  to {
+    opacity: 0;
+    transform: translateX(-60%) rotate(-6deg);
+  }
+}
+
+@keyframes jr-swipe-down {
+  to {
+    opacity: 0;
+    transform: translateY(28px) scale(0.94);
+  }
+}
+
+.jr-card-promote {
+  animation: jr-card-promote 0.28s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.jr-leave-right {
+  animation: jr-swipe-right 0.3s cubic-bezier(0.5, 0, 0.75, 0) both;
+}
+
+.jr-leave-left {
+  animation: jr-swipe-left 0.3s cubic-bezier(0.5, 0, 0.75, 0) both;
+}
+
+.jr-leave-down {
+  animation: jr-swipe-down 0.28s cubic-bezier(0.5, 0, 0.75, 0) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .jr-card-promote,
+  .jr-leave-right,
+  .jr-leave-left,
+  .jr-leave-down {
+    animation-duration: 0.01ms;
+  }
+}
+
 kbd {
   font-family: var(--font-inter), system-ui, sans-serif;
   font-size: 11px;

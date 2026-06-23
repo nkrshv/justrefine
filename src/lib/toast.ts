@@ -4,10 +4,16 @@ import { useSyncExternalStore } from "react";
 
 export type ToastTone = "default" | "success" | "danger";
 
+export interface ToastAction {
+  label: string;
+  onClick: () => void;
+}
+
 export interface Toast {
   id: number;
   message: string;
   tone: ToastTone;
+  action?: ToastAction;
 }
 
 let toasts: Toast[] = [];
@@ -24,12 +30,16 @@ function remove(id: number) {
   emit();
 }
 
-export function toast(message: string, tone: ToastTone = "default") {
+export function toast(
+  message: string,
+  tone: ToastTone = "default",
+  action?: ToastAction,
+) {
   const id = nextId++;
-  toasts = [...toasts, { id, message, tone }];
+  toasts = [...toasts, { id, message, tone, action }];
   emit();
   if (typeof window !== "undefined") {
-    window.setTimeout(() => remove(id), 2600);
+    window.setTimeout(() => remove(id), action ? 5500 : 2600);
   }
 }
 

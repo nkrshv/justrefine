@@ -33,7 +33,9 @@ export default function AppPage() {
   const {
     requests,
     addRequest,
+    addManyRequests,
     deleteRequest,
+    restoreRequest,
     resolve,
     reopen,
     seedSamples,
@@ -59,6 +61,16 @@ export default function AppPage() {
           el.tagName === "TEXTAREA" ||
           el.isContentEditable);
       if (typing || e.metaKey || e.ctrlKey || e.altKey) return;
+      // Quick-capture: jump to Capture and focus the request field.
+      if (e.key === "c" || e.key === "/") {
+        e.preventDefault();
+        setTab("inbox");
+        window.setTimeout(
+          () => document.getElementById("jr-capture-title")?.focus(),
+          60,
+        );
+        return;
+      }
       // In Refine, number keys pick an action — the card owns them.
       if (tab === "refine") return;
       if (e.key === "1") setTab("inbox");
@@ -73,13 +85,29 @@ export default function AppPage() {
     addRequest(input);
     toast("Request captured", "success");
   }
+  function handleAddMany(inputs: Parameters<typeof addManyRequests>[0]) {
+    if (inputs.length === 0) return;
+    addManyRequests(inputs);
+    toast(
+      `Added ${inputs.length} request${inputs.length === 1 ? "" : "s"}`,
+      "success",
+    );
+  }
   function handleResolve(id: string, input: ResolveInput) {
     resolve(id, input);
-    toast(`Moved to Refined · ${ACTION_META[input.action].short}`, "success");
+    toast(`Moved to Refined · ${ACTION_META[input.action].short}`, "success", {
+      label: "Undo",
+      onClick: () => reopen(id),
+    });
   }
   function handleDelete(id: string) {
+    const item = requests.find((r) => r.id === id);
     deleteRequest(id);
-    toast("Request deleted", "danger");
+    toast(
+      "Request deleted",
+      "danger",
+      item ? { label: "Undo", onClick: () => restoreRequest(item) } : undefined,
+    );
   }
   function handleReopen(id: string) {
     reopen(id);
@@ -185,6 +213,7 @@ export default function AppPage() {
             <Inbox
               requests={requests}
               onAdd={handleAdd}
+              onAddMany={handleAddMany}
               onDelete={handleDelete}
               onStartRefinement={() => setTab("refine")}
               onSeed={handleSeed}

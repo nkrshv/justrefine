@@ -37,6 +37,7 @@ function normalize(r: Partial<RequestItem>): RequestItem {
     storyWant: r.storyWant ?? "",
     storyBenefit: r.storyBenefit ?? "",
     acceptance: r.acceptance ?? "",
+    emailDraft: r.emailDraft ?? "",
     createdAt: r.createdAt ?? Date.now(),
     refinedAt: r.refinedAt ?? null,
   };
@@ -110,8 +111,30 @@ function addRequest(input: NewRequestInput): void {
   write([item, ...read()]);
 }
 
+function addManyRequests(inputs: NewRequestInput[]): void {
+  const base = Date.now();
+  const items = inputs.map((input, i) =>
+    normalize({
+      title: input.title.trim(),
+      details: input.details.trim(),
+      source: input.source.trim(),
+      urgency: input.urgency,
+      deadline: input.deadline,
+      tags: input.tags,
+      status: "inbox",
+      createdAt: base + (inputs.length - i),
+    }),
+  );
+  write([...items, ...read()]);
+}
+
 function deleteRequest(id: string): void {
   write(read().filter((r) => r.id !== id));
+}
+
+function restoreRequest(item: RequestItem): void {
+  if (read().some((r) => r.id === item.id)) return;
+  write([item, ...read()]);
 }
 
 function resolve(id: string, input: ResolveInput): void {
@@ -162,7 +185,9 @@ export function useRequests() {
   return {
     requests,
     addRequest,
+    addManyRequests,
     deleteRequest,
+    restoreRequest,
     resolve,
     reopen,
     seedSamples,

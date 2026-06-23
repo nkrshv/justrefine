@@ -1,10 +1,12 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { cn } from "@/lib/cn";
+import { burstConfetti } from "@/lib/confetti";
 import { ACTION_META, ACTION_ORDER } from "@/lib/constants";
 import { getNextAction, userStoryText } from "@/lib/followups";
 import { compareRequests } from "@/lib/sorting";
+import { toast } from "@/lib/toast";
 import type { ActionType, RequestItem, ResolveInput } from "@/lib/types";
 import { DeadlineBadge, Priority, Tag } from "./Badge";
 
@@ -24,6 +26,15 @@ export function RefinementMode({
   const [skipped, setSkipped] = useState<Set<string>>(new Set());
   const [resolvedCount, setResolvedCount] = useState(0);
   const [sort, setSort] = useState<RefineSort>("urgency");
+  const [leaving, setLeaving] = useState<string | null>(null);
+  const exitTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(
+    () => () => {
+      if (exitTimer.current) clearTimeout(exitTimer.current);
+    },
+    [],
+  );
 
   const inbox = useMemo(
     () => requests.filter((r) => r.status === "inbox"),
@@ -39,15 +50,34 @@ export function RefinementMode({
   );
 
   const current = remaining[0];
+  const upNext = remaining.slice(1, 3);
   const skippedCount = inbox.length - remaining.length;
 
+  function runExit(anim: string, commit: () => void) {
+    if (leaving) return;
+    setLeaving(anim);
+    exitTimer.current = setTimeout(() => {
+      commit();
+      setLeaving(null);
+    }, 300);
+  }
+
   function handleResolve(id: string, input: ResolveInput) {
-    onResolve(id, input);
-    setResolvedCount((c) => c + 1);
+    if (input.action === "done") burstConfetti();
+    runExit("jr-leave-right", () => {
+      onResolve(id, input);
+      setResolvedCount((c) => c + 1);
+    });
   }
 
   function handleSkip(id: string) {
-    setSkipped((prev) => new Set(prev).add(id));
+    runExit("jr-leave-left", () => {
+      setSkipped((prev) => new Set(prev).add(id));
+    });
+  }
+
+  function handleDelete(id: string) {
+    runExit("jr-leave-down", () => onDelete(id));
   }
 
   if (inbox.length === 0) {
@@ -152,15 +182,37 @@ export function RefinementMode({
         </span>
       </div>
 
-      <RefineCard
-        key={current.id}
-        item={current}
-        onResolve={handleResolve}
-        onSkip={handleSkip}
-        onDelete={onDelete}
-        onExit={onExit}
-      />
+      <div className="relative mt-5">
+        {upNext.map((r, i) => (
+          <DeckShell key={r.id} depth={i + 1} leaving={leaving !== null} />
+        ))}
+        <div className={cn("relative", leaving)}>
+          <RefineCard
+            key={current.id}
+            item={current}
+            onResolve={handleResolve}
+            onSkip={handleSkip}
+            onDelete={handleDelete}
+            onExit={onExit}
+          />
+        </div>
+      </div>
     </div>
+  );
+}
+
+function DeckShell({ depth, leaving }: { depth: number; leaving: boolean }) {
+  const lift = leaving ? depth - 1 : depth;
+  return (
+    <div
+      aria-hidden
+      className="absolute inset-x-0 top-0 h-full rounded-2xl border border-zinc-200 bg-white shadow-sm transition-all duration-300 ease-out"
+      style={{
+        transform: `translateY(${lift * 16}px) scale(${1 - lift * 0.03})`,
+        opacity: lift === 0 ? 0 : Math.max(0, 0.85 - (lift - 1) * 0.35),
+        zIndex: -depth,
+      }}
+    />
   );
 }
 
@@ -190,6 +242,76 @@ function RefineCard({
   const [storyWant, setStoryWant] = useState(item.storyWant);
   const [storyBenefit, setStoryBenefit] = useState(item.storyBenefit);
   const [acceptance, setAcceptance] = useState(item.acceptance);
+  const [emailDraft, setEmailDraft] = useState(item.emailDraft);
+  const [drafting, setDrafting] = useState(false);
+  const [draftingEmail, setDraftingEmail] = useState(false);
+
+  async function draftEmailWithAI() {
+    setDraftingEmail(true);
+    try {
+      const res = await fetch("/api/draft-email", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: item.title,
+          details: item.details,
+          source: item.source,
+          referTo,
+          spoc,
+        }),
+      });
+      const data = (await res.json().catch(() => ({}))) as {
+        error?: string;
+        body?: string;
+      };
+      if (!res.ok) {
+        toast(data.error || "AI draft failed", "danger");
+        return;
+      }
+      if (data.body) setEmailDraft(data.body);
+      toast("Email drafted with AI — review and edit", "success");
+    } catch {
+      toast("Couldn't reach the AI service", "danger");
+    } finally {
+      setDraftingEmail(false);
+    }
+  }
+
+  async function draftWithAI() {
+    setDrafting(true);
+    try {
+      const res = await fetch("/api/draft-story", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: item.title,
+          details: item.details,
+          source: item.source,
+        }),
+      });
+      const data = (await res.json().catch(() => ({}))) as {
+        error?: string;
+        storyRole?: string;
+        storyWant?: string;
+        storyBenefit?: string;
+        acceptance?: string;
+      };
+      if (!res.ok) {
+        toast(data.error || "AI draft failed", "danger");
+        return;
+      }
+      setAction("user_story");
+      if (data.storyRole) setStoryRole(data.storyRole);
+      if (data.storyWant) setStoryWant(data.storyWant);
+      if (data.storyBenefit) setStoryBenefit(data.storyBenefit);
+      if (data.acceptance) setAcceptance(data.acceptance);
+      toast("Drafted with AI — review and edit", "success");
+    } catch {
+      toast("Couldn't reach the AI service", "danger");
+    } finally {
+      setDrafting(false);
+    }
+  }
 
   const input: ResolveInput = useMemo(
     () => ({
@@ -203,6 +325,7 @@ function RefineCard({
       storyWant: storyWant.trim(),
       storyBenefit: storyBenefit.trim(),
       acceptance: acceptance.trim(),
+      emailDraft: emailDraft.trim(),
     }),
     [
       action,
@@ -215,6 +338,7 @@ function RefineCard({
       storyWant,
       storyBenefit,
       acceptance,
+      emailDraft,
     ],
   );
 
@@ -282,9 +406,9 @@ function RefineCard({
   }, [item.id, action, valid, input, onResolve, onExit, onSkip, onDelete]);
 
   return (
-    <div className="jr-card-enter mt-5 rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
+    <div className="jr-card-promote relative rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
       <div className="flex items-start justify-between gap-3">
-        <h2 className="text-lg font-semibold leading-snug text-zinc-900">
+        <h2 className="min-w-0 break-words text-lg font-semibold leading-snug text-zinc-900">
           {item.title}
         </h2>
         <div className="flex shrink-0 flex-col items-end gap-1.5">
@@ -294,7 +418,7 @@ function RefineCard({
       </div>
 
       {item.details && (
-        <p className="mt-3 whitespace-pre-wrap text-sm text-zinc-600">
+        <p className="mt-3 whitespace-pre-wrap break-words text-sm text-zinc-600">
           {item.details}
         </p>
       )}
@@ -359,6 +483,25 @@ function RefineCard({
         <div className="jr-fade-in mt-4 space-y-3 rounded-xl bg-zinc-50 p-4">
           {action === "user_story" && (
             <>
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-xs font-medium text-zinc-500">
+                  Draft the story, or let AI start it for you.
+                </span>
+                <button
+                  type="button"
+                  onClick={draftWithAI}
+                  disabled={drafting}
+                  className="inline-flex shrink-0 items-center gap-1.5 rounded-lg border border-accent/30 bg-accent/[0.06] px-2.5 py-1.5 text-xs font-semibold text-accent transition hover:bg-accent/10 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  <svg viewBox="0 0 16 16" className="h-3.5 w-3.5" fill="none">
+                    <path
+                      d="M8 2.2 9 5.4 12.2 6.4 9 7.4 8 10.6 7 7.4 3.8 6.4 7 5.4 8 2.2ZM12.5 10.5l.5 1.5 1.5.5-1.5.5-.5 1.5-.5-1.5L10.5 12.5l1.5-.5.5-1.5Z"
+                      fill="currentColor"
+                    />
+                  </svg>
+                  {drafting ? "Drafting…" : "Draft with AI"}
+                </button>
+              </div>
               <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
                 <input
                   value={storyRole}
@@ -423,6 +566,32 @@ function RefineCard({
                 setSpocEmail={setSpocEmail}
                 label="Who to inform (SPOC)"
               />
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-xs font-medium text-zinc-500">
+                  Handover email — write it, or let AI draft it.
+                </span>
+                <button
+                  type="button"
+                  onClick={draftEmailWithAI}
+                  disabled={draftingEmail}
+                  className="inline-flex shrink-0 items-center gap-1.5 rounded-lg border border-accent/30 bg-accent/[0.06] px-2.5 py-1.5 text-xs font-semibold text-accent transition hover:bg-accent/10 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  <svg viewBox="0 0 16 16" className="h-3.5 w-3.5" fill="none">
+                    <path
+                      d="M8 2.2 9 5.4 12.2 6.4 9 7.4 8 10.6 7 7.4 3.8 6.4 7 5.4 8 2.2ZM12.5 10.5l.5 1.5 1.5.5-1.5.5-.5 1.5-.5-1.5L10.5 12.5l1.5-.5.5-1.5Z"
+                      fill="currentColor"
+                    />
+                  </svg>
+                  {draftingEmail ? "Drafting…" : "Draft with AI"}
+                </button>
+              </div>
+              <textarea
+                value={emailDraft}
+                onChange={(e) => setEmailDraft(e.target.value)}
+                placeholder="Handover email body (optional) — used by the email draft link"
+                rows={4}
+                className={cn(fieldClass, "resize-y")}
+              />
             </>
           )}
 
@@ -462,7 +631,7 @@ function RefineCard({
               </p>
               <p className="mt-1 text-sm text-zinc-700">{preview.text}</p>
               {action === "user_story" && (
-                <pre className="mt-2 whitespace-pre-wrap rounded-md border border-zinc-200 bg-white p-2 text-xs text-zinc-600">
+                <pre className="mt-2 whitespace-pre-wrap break-words rounded-md border border-zinc-200 bg-white p-2 text-xs text-zinc-600">
                   {userStoryText({ ...item, ...input })}
                 </pre>
               )}

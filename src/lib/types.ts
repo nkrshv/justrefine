@@ -31,6 +31,7 @@ export interface RequestItem {
   storyWant: string;
   storyBenefit: string;
   acceptance: string;
+  emailDraft: string;
   createdAt: number;
   refinedAt: number | null;
 }
@@ -46,4 +47,5 @@ export interface ResolveInput {
   storyWant: string;
   storyBenefit: string;
   acceptance: string;
+  emailDraft: string;
 }

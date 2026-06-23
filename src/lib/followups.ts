@@ -52,13 +52,12 @@ export function getNextAction(item: RequestItem): NextAction | null {
     }
     case "referred": {
       const team = item.referTo.trim() || "the relevant team";
+      const body =
+        item.emailDraft.trim() ||
+        `Hi,\n\nThe request "${item.title}" is better owned by ${team}. Passing it on — they'll follow up.\n\nBest,`;
       return {
         text: `Hand this off to ${team} and let ${who} know who now owns it.`,
-        mailto: mailLink(
-          item.spocEmail,
-          `Handover: ${item.title}`,
-          `Hi,\n\nThe request "${item.title}" is better owned by ${team}. Passing it on — they'll follow up.\n\nBest,`,
-        ),
+        mailto: mailLink(item.spocEmail, `Handover: ${item.title}`, body),
       };
     }
     case "unclear": {
