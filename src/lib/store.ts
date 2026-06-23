@@ -38,6 +38,7 @@ function normalize(r: Partial<RequestItem>): RequestItem {
     storyBenefit: r.storyBenefit ?? "",
     acceptance: r.acceptance ?? "",
     emailDraft: r.emailDraft ?? "",
+    followUpDone: r.followUpDone ?? false,
     createdAt: r.createdAt ?? Date.now(),
     refinedAt: r.refinedAt ?? null,
   };
@@ -161,7 +162,18 @@ function reopen(id: string): void {
             status: "inbox" as const,
             action: null,
             refinedAt: null,
+            followUpDone: false,
           }
+        : r,
+    ),
+  );
+}
+
+function toggleFollowUp(id: string, done?: boolean): void {
+  write(
+    read().map((r) =>
+      r.id === id
+        ? { ...r, followUpDone: done ?? !r.followUpDone }
         : r,
     ),
   );
@@ -190,6 +202,7 @@ export function useRequests() {
     restoreRequest,
     resolve,
     reopen,
+    toggleFollowUp,
     seedSamples,
     clearAll,
   };

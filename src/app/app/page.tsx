@@ -38,6 +38,7 @@ export default function AppPage() {
     restoreRequest,
     resolve,
     reopen,
+    toggleFollowUp,
     seedSamples,
     clearAll,
   } = useRequests();
@@ -230,6 +231,7 @@ export default function AppPage() {
               requests={requests}
               onReopen={handleReopen}
               onDelete={handleDelete}
+              onToggleFollowUp={toggleFollowUp}
             />
           )}
         </main>

@@ -32,6 +32,7 @@ export interface RequestItem {
   storyBenefit: string;
   acceptance: string;
   emailDraft: string;
+  followUpDone: boolean;
   createdAt: number;
   refinedAt: number | null;
 }
