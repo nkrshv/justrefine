@@ -12,6 +12,19 @@ import { DeadlineBadge, Priority, Tag } from "./Badge";
 
 type RefineSort = "urgency" | "deadline";
 
+interface TriageExample {
+  title: string;
+  details: string;
+  action: ActionType;
+}
+
+interface TriageSuggestion {
+  action: ActionType;
+  confidence: number;
+  rationale: string;
+  learnedFrom: number;
+}
+
 export function RefinementMode({
   requests,
   onResolve,
@@ -52,6 +65,20 @@ export function RefinementMode({
   const current = remaining[0];
   const upNext = remaining.slice(1, 3);
   const skippedCount = inbox.length - remaining.length;
+
+  const examples = useMemo<TriageExample[]>(
+    () =>
+      requests
+        .filter((r) => r.status === "refined" && r.action !== null)
+        .sort((a, b) => (b.refinedAt ?? 0) - (a.refinedAt ?? 0))
+        .slice(0, 12)
+        .map((r) => ({
+          title: r.title,
+          details: r.details,
+          action: r.action as ActionType,
+        })),
+    [requests],
+  );
 
   function runExit(anim: string, commit: () => void) {
     if (leaving) return;
@@ -190,6 +217,7 @@ export function RefinementMode({
           <RefineCard
             key={current.id}
             item={current}
+            examples={examples}
             onResolve={handleResolve}
             onSkip={handleSkip}
             onDelete={handleDelete}
@@ -221,18 +249,23 @@ const fieldClass =
 
 function RefineCard({
   item,
+  examples,
   onResolve,
   onSkip,
   onDelete,
   onExit,
 }: {
   item: RequestItem;
+  examples: TriageExample[];
   onResolve: (id: string, input: ResolveInput) => void;
   onSkip: (id: string) => void;
   onDelete: (id: string) => void;
   onExit: () => void;
 }) {
   const [action, setAction] = useState<ActionType | null>(item.action);
+  const [suggestion, setSuggestion] = useState<TriageSuggestion | null>(null);
+  const [suggesting, setSuggesting] = useState(false);
+  const [suggestDismissed, setSuggestDismissed] = useState(false);
   const [outcomeNote, setOutcomeNote] = useState(item.outcomeNote);
   const [reason, setReason] = useState(item.reason);
   const [referTo, setReferTo] = useState(item.referTo);
@@ -245,6 +278,50 @@ function RefineCard({
   const [emailDraft, setEmailDraft] = useState(item.emailDraft);
   const [drafting, setDrafting] = useState(false);
   const [draftingEmail, setDraftingEmail] = useState(false);
+  const suggestRequested = useRef(false);
+
+  async function suggestAction() {
+    setSuggesting(true);
+    setSuggestDismissed(false);
+    try {
+      const res = await fetch("/api/suggest-action", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: item.title,
+          details: item.details,
+          source: item.source,
+          urgency: item.urgency,
+          tags: item.tags,
+          examples,
+        }),
+      });
+      const data = (await res.json().catch(() => ({}))) as TriageSuggestion & {
+        error?: string;
+      };
+      if (!res.ok || !data.action) {
+        setSuggestion(null);
+        return;
+      }
+      setSuggestion({
+        action: data.action,
+        confidence: data.confidence,
+        rationale: data.rationale,
+        learnedFrom: data.learnedFrom ?? 0,
+      });
+    } catch {
+      setSuggestion(null);
+    } finally {
+      setSuggesting(false);
+    }
+  }
+
+  useEffect(() => {
+    if (suggestRequested.current || item.action) return;
+    suggestRequested.current = true;
+    void suggestAction();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   async function draftEmailWithAI() {
     setDraftingEmail(true);
@@ -433,6 +510,19 @@ function RefineCard({
       </div>
 
       <hr className="my-5 border-zinc-100" />
+
+      <CopilotBanner
+        suggesting={suggesting}
+        suggestion={suggestion}
+        dismissed={suggestDismissed}
+        currentAction={action}
+        onApply={(a) => {
+          setAction(a);
+          setSuggestDismissed(true);
+        }}
+        onDismiss={() => setSuggestDismissed(true)}
+        onRetry={() => void suggestAction()}
+      />
 
       <p className="mb-2 text-sm font-medium text-zinc-700">
         What&apos;s the action?
@@ -708,6 +798,124 @@ function SpocFields({
           placeholder="Email (for the draft)"
           className={fieldClass}
         />
+      </div>
+    </div>
+  );
+}
+
+function SparkleIcon({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 16 16" className={className} fill="none">
+      <path
+        d="M8 2.2 9 5.4 12.2 6.4 9 7.4 8 10.6 7 7.4 3.8 6.4 7 5.4 8 2.2ZM12.5 10.5l.5 1.5 1.5.5-1.5.5-.5 1.5-.5-1.5L10.5 12.5l1.5-.5.5-1.5Z"
+        fill="currentColor"
+      />
+    </svg>
+  );
+}
+
+function CopilotBanner({
+  suggesting,
+  suggestion,
+  dismissed,
+  currentAction,
+  onApply,
+  onDismiss,
+  onRetry,
+}: {
+  suggesting: boolean;
+  suggestion: TriageSuggestion | null;
+  dismissed: boolean;
+  currentAction: ActionType | null;
+  onApply: (a: ActionType) => void;
+  onDismiss: () => void;
+  onRetry: () => void;
+}) {
+  if (dismissed) return null;
+
+  if (suggesting && !suggestion) {
+    return (
+      <div className="mb-3 flex items-center gap-2 rounded-xl border border-accent/20 bg-accent/[0.05] px-3 py-2.5 text-xs font-medium text-accent">
+        <SparkleIcon className="h-3.5 w-3.5 animate-pulse" />
+        Triage Copilot is thinking…
+      </div>
+    );
+  }
+
+  if (!suggestion) return null;
+
+  const meta = ACTION_META[suggestion.action];
+  const applied = currentAction === suggestion.action;
+
+  return (
+    <div className="jr-fade-in mb-3 rounded-xl border border-accent/25 bg-accent/[0.05] p-3">
+      <div className="flex items-start gap-2.5">
+        <span className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-accent/15 text-accent">
+          <SparkleIcon className="h-3.5 w-3.5" />
+        </span>
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+            <span className="text-xs font-medium text-zinc-500">
+              Triage Copilot suggests
+            </span>
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-white px-2 py-0.5 text-xs font-semibold text-zinc-900 ring-1 ring-zinc-200">
+              <span className={cn("h-1.5 w-1.5 rounded-full", meta.dot)} />
+              {meta.short}
+            </span>
+            <span className="text-xs font-medium text-accent">
+              {suggestion.confidence}% sure
+            </span>
+          </div>
+          {suggestion.rationale && (
+            <p className="mt-1 break-words text-sm text-zinc-700">
+              {suggestion.rationale}
+            </p>
+          )}
+          <div className="mt-2 flex flex-wrap items-center gap-2">
+            {applied ? (
+              <span className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-600">
+                <svg viewBox="0 0 16 16" className="h-3.5 w-3.5" fill="none">
+                  <path
+                    d="m3.5 8.5 2.8 2.8L12.5 5"
+                    stroke="currentColor"
+                    strokeWidth="1.8"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                </svg>
+                Applied
+              </span>
+            ) : (
+              <button
+                type="button"
+                onClick={() => onApply(suggestion.action)}
+                className="rounded-lg bg-accent px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-accent-hover active:scale-[0.98]"
+              >
+                Apply suggestion
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={onRetry}
+              className="rounded-lg px-2 py-1.5 text-xs font-medium text-zinc-500 transition hover:bg-white hover:text-zinc-700"
+            >
+              Re-suggest
+            </button>
+            <button
+              type="button"
+              onClick={onDismiss}
+              className="rounded-lg px-2 py-1.5 text-xs font-medium text-zinc-400 transition hover:bg-white hover:text-zinc-600"
+            >
+              Dismiss
+            </button>
+            {suggestion.learnedFrom > 0 && (
+              <span className="ml-auto text-[11px] text-zinc-400">
+                Learned from your {suggestion.learnedFrom} past decision
+                {suggestion.learnedFrom === 1 ? "" : "s"}
+              </span>
+            )}
+          </div>
+        </div>
       </div>
     </div>
   );
