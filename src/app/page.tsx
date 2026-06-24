@@ -11,7 +11,7 @@ const STEPS = [
   {
     emoji: "📥",
     title: "Capture in seconds",
-    body: "Paste raw meeting notes and they auto-split into clean requests — title, source, urgency, tags. No more lost asks.",
+    body: "Paste a wall of raw meeting notes and they auto-split into clean, de-duped requests — title, source, urgency, tags. No more lost asks.",
   },
   {
     emoji: "🎯",
@@ -50,11 +50,6 @@ const FEATURES = [
     emoji: "📋",
     title: "Follow-up checklist",
     body: "The outcomes page isn't a dashboard — it's a to-do list of what's still on you, with a quiet progress bar and a one-click action per row.",
-  },
-  {
-    emoji: "⚡",
-    title: "Bulk paste capture",
-    body: "Dump a wall of notes, get a clean inbox. Dedupes as it goes so the same ask doesn't land twice.",
   },
   {
     emoji: "🔒",
@@ -223,15 +218,21 @@ export default function Home() {
               {FEATURES.map((f) => (
                 <div
                   key={f.title}
-                  className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm transition hover:-translate-y-1 hover:shadow-md"
+                  className="group relative overflow-hidden rounded-2xl border border-zinc-200/70 bg-gradient-to-b from-white to-zinc-50/60 p-6 shadow-[0_1px_2px_rgba(24,25,34,0.04)] transition-all duration-300 will-change-transform hover:-translate-y-1.5 hover:border-accent/30 hover:shadow-[0_24px_48px_-16px_rgba(94,106,210,0.28)]"
                 >
-                  <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-accent/10 text-xl">
-                    {f.emoji}
-                  </span>
-                  <h3 className="mt-4 text-base font-semibold">{f.title}</h3>
-                  <p className="mt-1.5 text-sm leading-relaxed text-zinc-600">
-                    {f.body}
-                  </p>
+                  <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-accent/40 to-transparent opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
+                  <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-accent/[0.035] to-transparent opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
+                  <div className="relative">
+                    <span className="flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-accent/15 to-accent/5 text-2xl ring-1 ring-inset ring-accent/10 transition-transform duration-300 group-hover:-rotate-6 group-hover:scale-110">
+                      {f.emoji}
+                    </span>
+                    <h3 className="mt-5 text-base font-semibold tracking-tight">
+                      {f.title}
+                    </h3>
+                    <p className="mt-2 text-sm leading-relaxed text-zinc-600">
+                      {f.body}
+                    </p>
+                  </div>
                 </div>
               ))}
             </div>
