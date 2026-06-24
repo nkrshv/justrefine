@@ -83,8 +83,12 @@ const FAQ = [
 
 export default function Home() {
   return (
-    <div className="min-h-screen bg-white text-zinc-900">
-      <header className="sticky top-0 z-30 border-b border-zinc-100 bg-white/80 backdrop-blur">
+    <div className="relative min-h-screen text-zinc-900">
+      <div
+        aria-hidden
+        className="jr-glow pointer-events-none absolute inset-x-0 top-0 -z-10 h-[660px]"
+      />
+      <header className="sticky top-0 z-30 border-b border-zinc-100/80 bg-white/60 backdrop-blur">
         <div className="mx-auto flex max-w-5xl items-center justify-between px-4 py-3.5">
           <div className="flex items-center gap-2">
             <span className="flex h-8 w-8 items-center justify-center rounded-[9px] bg-accent text-sm font-bold text-white">
@@ -111,7 +115,7 @@ export default function Home() {
 
       <main>
         {/* Hero */}
-        <section className="jr-glow relative overflow-hidden">
+        <section className="relative overflow-hidden">
           <div className="mx-auto max-w-5xl px-4 pb-16 pt-16 text-center sm:pt-24">
             <span className="inline-flex items-center gap-1.5 rounded-full bg-accent/10 px-3 py-1 text-xs font-semibold text-accent ring-1 ring-inset ring-accent/15">
               ✦ Built by a PM who lives in refinement meetings
