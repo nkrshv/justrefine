@@ -11,12 +11,12 @@ const STEPS = [
   {
     emoji: "📥",
     title: "Capture in seconds",
-    body: "Paste raw meeting notes and they auto-split into clean requests — title, source, urgency, tags. No more lost asks.",
+    body: "Paste a wall of raw meeting notes and they auto-split into clean, de-duped requests — title, source, urgency, tags. No more lost asks.",
   },
   {
     emoji: "🎯",
     title: "Refine like Linear",
-    body: "Swipe through a stacked deck one card at a time. AI suggests the call; your team just confirms. Fast, focused, kind of addictive.",
+    body: "Swipe through a stacked deck one card at a time. AI suggests the call and flags the blind spots; your team discusses and confirms. Fast, focused, kind of addictive.",
   },
   {
     emoji: "✅",
@@ -32,6 +32,11 @@ const FEATURES = [
     body: "On every request, AI proposes the action — story, refer, decline, needs-info, done — with a one-line rationale, learned from how you've decided before.",
   },
   {
+    emoji: "🔎",
+    title: "What am I missing?",
+    body: "One click surfaces 1–3 sharp questions from angles you'd overlook — scope, risk, edge users — so the team pressure-tests a request before deciding. And if there's not enough to go on, it says so instead of making things up.",
+  },
+  {
     emoji: "🃏",
     title: "Linear-style refine deck",
     body: "Cards stack, swipe away when resolved, and the next one promotes into focus. Refinement that actually feels good to run.",
@@ -45,11 +50,6 @@ const FEATURES = [
     emoji: "📋",
     title: "Follow-up checklist",
     body: "The outcomes page isn't a dashboard — it's a to-do list of what's still on you, with a quiet progress bar and a one-click action per row.",
-  },
-  {
-    emoji: "⚡",
-    title: "Bulk paste capture",
-    body: "Dump a wall of notes, get a clean inbox. Dedupes as it goes so the same ask doesn't land twice.",
   },
   {
     emoji: "🔒",
@@ -69,7 +69,7 @@ const FAQ = [
   },
   {
     q: "What does the AI do, exactly?",
-    a: "It suggests the likely action for each request, drafts user stories with acceptance criteria, and writes handover emails. You always review and edit before anything is saved.",
+    a: "It suggests the likely action for each request, surfaces blind-spot questions your team might miss, drafts user stories with acceptance criteria, and writes handover emails. You always review and edit before anything is saved.",
   },
   {
     q: "Can I use this with confidential data?",
@@ -83,8 +83,12 @@ const FAQ = [
 
 export default function Home() {
   return (
-    <div className="min-h-screen bg-white text-zinc-900">
-      <header className="sticky top-0 z-30 border-b border-zinc-100 bg-white/80 backdrop-blur">
+    <div className="relative min-h-screen text-zinc-900">
+      <div
+        aria-hidden
+        className="jr-glow pointer-events-none absolute inset-x-0 top-0 -z-10 h-[660px]"
+      />
+      <header className="sticky top-0 z-30 border-b border-zinc-100/80 bg-white/60 backdrop-blur">
         <div className="mx-auto flex max-w-5xl items-center justify-between px-4 py-3.5">
           <div className="flex items-center gap-2">
             <span className="flex h-8 w-8 items-center justify-center rounded-[9px] bg-accent text-sm font-bold text-white">
@@ -111,7 +115,7 @@ export default function Home() {
 
       <main>
         {/* Hero */}
-        <section className="jr-glow relative overflow-hidden">
+        <section className="relative overflow-hidden">
           <div className="mx-auto max-w-5xl px-4 pb-16 pt-16 text-center sm:pt-24">
             <span className="inline-flex items-center gap-1.5 rounded-full bg-accent/10 px-3 py-1 text-xs font-semibold text-accent ring-1 ring-inset ring-accent/15">
               ✦ Built by a PM who lives in refinement meetings
@@ -218,15 +222,21 @@ export default function Home() {
               {FEATURES.map((f) => (
                 <div
                   key={f.title}
-                  className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm transition hover:-translate-y-1 hover:shadow-md"
+                  className="group relative overflow-hidden rounded-2xl border border-zinc-200/70 bg-gradient-to-b from-white to-zinc-50/60 p-6 shadow-[0_1px_2px_rgba(24,25,34,0.04)] transition-all duration-300 will-change-transform hover:-translate-y-1.5 hover:border-accent/30 hover:shadow-[0_24px_48px_-16px_rgba(94,106,210,0.28)]"
                 >
-                  <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-accent/10 text-xl">
-                    {f.emoji}
-                  </span>
-                  <h3 className="mt-4 text-base font-semibold">{f.title}</h3>
-                  <p className="mt-1.5 text-sm leading-relaxed text-zinc-600">
-                    {f.body}
-                  </p>
+                  <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-accent/40 to-transparent opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
+                  <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-accent/[0.035] to-transparent opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
+                  <div className="relative">
+                    <span className="flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-accent/15 to-accent/5 text-2xl ring-1 ring-inset ring-accent/10 transition-transform duration-300 group-hover:-rotate-6 group-hover:scale-110">
+                      {f.emoji}
+                    </span>
+                    <h3 className="mt-5 text-base font-semibold tracking-tight">
+                      {f.title}
+                    </h3>
+                    <p className="mt-2 text-sm leading-relaxed text-zinc-600">
+                      {f.body}
+                    </p>
+                  </div>
                 </div>
               ))}
             </div>
