@@ -616,15 +616,27 @@ function RefineCard({
         onRetry={() => void suggestAction()}
       />
 
+      <div className="mb-2 flex items-center justify-between gap-3">
+        <p className="text-sm font-medium text-zinc-700">
+          What&apos;s the action?
+        </p>
+        {blindSpots.status === "idle" && (
+          <button
+            type="button"
+            onClick={() => void findBlindSpots()}
+            className="inline-flex shrink-0 items-center gap-1.5 rounded-lg px-2 py-1 text-xs font-medium text-zinc-500 transition hover:bg-zinc-100 hover:text-zinc-700 active:scale-[0.98]"
+          >
+            <LensIcon className="h-3.5 w-3.5" />
+            What am I missing?
+          </button>
+        )}
+      </div>
+
       <BlindSpotPanel
         state={blindSpots}
         onFind={() => void findBlindSpots()}
         onDismiss={() => setBlindSpots({ status: "idle" })}
       />
-
-      <p className="mb-2 text-sm font-medium text-zinc-700">
-        What&apos;s the action?
-      </p>
       <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
         {ACTION_ORDER.map((a, i) => {
           const meta = ACTION_META[a];
@@ -1048,18 +1060,7 @@ function BlindSpotPanel({
   onFind: () => void;
   onDismiss: () => void;
 }) {
-  if (state.status === "idle") {
-    return (
-      <button
-        type="button"
-        onClick={onFind}
-        className="mb-3 inline-flex items-center gap-1.5 rounded-lg border border-zinc-200 bg-white px-2.5 py-1.5 text-xs font-semibold text-zinc-600 transition hover:border-zinc-300 hover:bg-zinc-50 active:scale-[0.98]"
-      >
-        <LensIcon className="h-3.5 w-3.5" />
-        What am I missing?
-      </button>
-    );
-  }
+  if (state.status === "idle") return null;
 
   if (state.status === "loading") {
     return (
@@ -1126,15 +1127,20 @@ function BlindSpotPanel({
           <span className="text-xs font-medium text-zinc-500">
             Questions to pressure-test with the team
           </span>
-          <ul className="mt-2 space-y-2">
+          <ul className="mt-2.5 space-y-3">
             {state.questions.map((q, i) => (
-              <li key={i} className="flex gap-2">
-                <span className="mt-0.5 inline-flex shrink-0 items-center rounded-full bg-white px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-amber-700 ring-1 ring-amber-200">
-                  {q.angle || "Angle"}
-                </span>
-                <span className="min-w-0 break-words text-sm text-zinc-700">
-                  {q.question}
-                </span>
+              <li key={i} className="flex gap-2.5">
+                <span className="mt-[7px] h-1.5 w-1.5 shrink-0 rounded-full bg-amber-400" />
+                <div className="min-w-0">
+                  {q.angle && (
+                    <span className="text-xs font-medium text-amber-700/90">
+                      {q.angle}
+                    </span>
+                  )}
+                  <p className="break-words text-sm text-zinc-700">
+                    {q.question}
+                  </p>
+                </div>
               </li>
             ))}
           </ul>
