@@ -132,12 +132,12 @@ export default function Home() {
               >
                 Start triaging — it&apos;s free
               </Link>
-              <Link
-                href="/app"
+              <a
+                href="#how-it-works"
                 className="w-full rounded-xl border border-zinc-200 bg-white px-7 py-3.5 text-base font-semibold text-zinc-700 transition hover:bg-zinc-50 active:scale-[0.98] sm:w-auto"
               >
-                See it in action
-              </Link>
+                See how it works
+              </a>
             </div>
             <p className="mt-4 text-sm text-zinc-400">
               No sign-up. No credit card. Your data never leaves your browser.
@@ -173,7 +173,7 @@ export default function Home() {
         </section>
 
         {/* How it works */}
-        <section className="mx-auto max-w-5xl px-4 py-20">
+        <section id="how-it-works" className="mx-auto max-w-5xl px-4 py-20">
           <div className="text-center">
             <h2 className="text-2xl font-bold tracking-tight sm:text-3xl">
               From meeting chaos to a clean backlog in 3 steps
