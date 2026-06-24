@@ -25,6 +25,18 @@ interface TriageSuggestion {
   learnedFrom: number;
 }
 
+interface BlindSpotQuestion {
+  angle: string;
+  question: string;
+}
+
+type BlindSpotState =
+  | { status: "idle" }
+  | { status: "loading" }
+  | { status: "questions"; questions: BlindSpotQuestion[] }
+  | { status: "insufficient"; reason: string }
+  | { status: "error"; message: string };
+
 export function RefinementMode({
   requests,
   onResolve,
@@ -279,6 +291,86 @@ function RefineCard({
   const [drafting, setDrafting] = useState(false);
   const [draftingEmail, setDraftingEmail] = useState(false);
   const suggestRequested = useRef(false);
+  const [blindSpots, setBlindSpots] = useState<BlindSpotState>({
+    status: "idle",
+  });
+  const blindSpotsLoading = useRef(false);
+
+  function blindSpotMeaningfulWords(text: string): number {
+    return text
+      .split(/\s+/)
+      .map((w) => w.replace(/[^a-zA-Z0-9]/g, ""))
+      .filter((w) => w.length >= 2).length;
+  }
+
+  async function findBlindSpots() {
+    if (blindSpotsLoading.current) return;
+
+    const details = (item.details ?? "").trim();
+    const words = blindSpotMeaningfulWords(`${item.title} ${details}`);
+    if (!details && words < 4) {
+      setBlindSpots({
+        status: "insufficient",
+        reason:
+          "I can't spot blind spots yet — there's not enough here to reason about. Add a line on what's being asked, who it's for, or the outcome you want, then try again.",
+      });
+      return;
+    }
+
+    const exclude =
+      blindSpots.status === "questions"
+        ? blindSpots.questions.map((q) => q.angle).filter(Boolean)
+        : [];
+
+    blindSpotsLoading.current = true;
+    setBlindSpots({ status: "loading" });
+    try {
+      const res = await fetch("/api/blind-spots", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: item.title,
+          details: item.details,
+          source: item.source,
+          urgency: item.urgency,
+          deadline: item.deadline,
+          tags: item.tags,
+          exclude,
+        }),
+      });
+      const data = (await res.json().catch(() => ({}))) as {
+        sufficient?: boolean;
+        reason?: string;
+        questions?: BlindSpotQuestion[];
+        error?: string;
+      };
+      if (!res.ok) {
+        setBlindSpots({
+          status: "error",
+          message:
+            data.error ?? "Couldn't reach the assistant — try again.",
+        });
+        return;
+      }
+      if (data.sufficient && data.questions && data.questions.length > 0) {
+        setBlindSpots({ status: "questions", questions: data.questions });
+      } else {
+        setBlindSpots({
+          status: "insufficient",
+          reason:
+            data.reason ??
+            "I can't spot blind spots yet — there's not enough here to reason about. Add a line on what's being asked, who it's for, or the outcome you want, then try again.",
+        });
+      }
+    } catch {
+      setBlindSpots({
+        status: "error",
+        message: "Couldn't reach the assistant — try again.",
+      });
+    } finally {
+      blindSpotsLoading.current = false;
+    }
+  }
 
   async function suggestAction() {
     setSuggesting(true);
@@ -524,9 +616,27 @@ function RefineCard({
         onRetry={() => void suggestAction()}
       />
 
-      <p className="mb-2 text-sm font-medium text-zinc-700">
-        What&apos;s the action?
-      </p>
+      <div className="mb-2 flex items-center justify-between gap-3">
+        <p className="text-sm font-medium text-zinc-700">
+          What&apos;s the action?
+        </p>
+        {blindSpots.status === "idle" && (
+          <button
+            type="button"
+            onClick={() => void findBlindSpots()}
+            className="inline-flex shrink-0 items-center gap-1.5 rounded-lg px-2 py-1 text-xs font-medium text-zinc-500 transition hover:bg-zinc-100 hover:text-zinc-700 active:scale-[0.98]"
+          >
+            <LensIcon className="h-3.5 w-3.5" />
+            What am I missing?
+          </button>
+        )}
+      </div>
+
+      <BlindSpotPanel
+        state={blindSpots}
+        onFind={() => void findBlindSpots()}
+        onDismiss={() => setBlindSpots({ status: "idle" })}
+      />
       <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
         {ACTION_ORDER.map((a, i) => {
           const meta = ACTION_META[a];
@@ -914,6 +1024,156 @@ function CopilotBanner({
                 {suggestion.learnedFrom === 1 ? "" : "s"}
               </span>
             )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function LensIcon({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 16 16" className={className} fill="none">
+      <circle
+        cx="7"
+        cy="7"
+        r="4.5"
+        stroke="currentColor"
+        strokeWidth="1.6"
+      />
+      <path
+        d="m10.5 10.5 3 3"
+        stroke="currentColor"
+        strokeWidth="1.6"
+        strokeLinecap="round"
+      />
+    </svg>
+  );
+}
+
+function BlindSpotPanel({
+  state,
+  onFind,
+  onDismiss,
+}: {
+  state: BlindSpotState;
+  onFind: () => void;
+  onDismiss: () => void;
+}) {
+  if (state.status === "idle") return null;
+
+  if (state.status === "loading") {
+    return (
+      <div className="mb-3 flex items-center gap-2 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2.5 text-xs font-medium text-amber-700">
+        <LensIcon className="h-3.5 w-3.5 animate-pulse" />
+        Looking for blind spots…
+      </div>
+    );
+  }
+
+  if (state.status === "insufficient") {
+    return (
+      <div className="jr-fade-in mb-3 rounded-xl border border-zinc-200 bg-zinc-50 p-3">
+        <div className="flex items-start gap-2.5">
+          <span className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-zinc-200 text-zinc-500">
+            <LensIcon className="h-3.5 w-3.5" />
+          </span>
+          <div className="min-w-0 flex-1">
+            <p className="text-sm text-zinc-600">{state.reason}</p>
+            <button
+              type="button"
+              onClick={onDismiss}
+              className="mt-2 rounded-lg px-2 py-1 text-xs font-medium text-zinc-400 transition hover:bg-white hover:text-zinc-600"
+            >
+              Dismiss
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (state.status === "error") {
+    return (
+      <div className="jr-fade-in mb-3 rounded-xl border border-zinc-200 bg-zinc-50 p-3">
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="text-sm text-zinc-600">{state.message}</span>
+          <button
+            type="button"
+            onClick={onFind}
+            className="rounded-lg bg-zinc-900 px-2.5 py-1 text-xs font-semibold text-white transition hover:bg-zinc-700 active:scale-[0.98]"
+          >
+            Try again
+          </button>
+          <button
+            type="button"
+            onClick={onDismiss}
+            className="rounded-lg px-2 py-1 text-xs font-medium text-zinc-400 transition hover:bg-white hover:text-zinc-600"
+          >
+            Dismiss
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="jr-fade-in mb-3 rounded-xl border border-amber-200 bg-amber-50/60 p-3">
+      <div className="flex items-start gap-2.5">
+        <span className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-amber-200 text-amber-700">
+          <LensIcon className="h-3.5 w-3.5" />
+        </span>
+        <div className="min-w-0 flex-1">
+          <span className="text-xs font-medium text-zinc-500">
+            Questions to pressure-test with the team
+          </span>
+          <ul className="mt-2.5 space-y-3">
+            {state.questions.map((q, i) => (
+              <li key={i} className="flex gap-2.5">
+                <span className="mt-[7px] h-1.5 w-1.5 shrink-0 rounded-full bg-amber-400" />
+                <div className="min-w-0">
+                  {q.angle && (
+                    <span className="text-xs font-medium text-amber-700/90">
+                      {q.angle}
+                    </span>
+                  )}
+                  <p className="break-words text-sm text-zinc-700">
+                    {q.question}
+                  </p>
+                </div>
+              </li>
+            ))}
+          </ul>
+          <div className="mt-2.5 flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              onClick={() => {
+                const text = state.questions
+                  .map((q) => `- (${q.angle}) ${q.question}`)
+                  .join("\n");
+                void navigator.clipboard
+                  .writeText(text)
+                  .then(() => toast("Questions copied", "success"))
+                  .catch(() => toast("Couldn't copy", "danger"));
+              }}
+              className="rounded-lg bg-white px-2.5 py-1.5 text-xs font-semibold text-zinc-700 ring-1 ring-zinc-200 transition hover:bg-zinc-50 active:scale-[0.98]"
+            >
+              Copy
+            </button>
+            <button
+              type="button"
+              onClick={onFind}
+              className="rounded-lg px-2 py-1.5 text-xs font-medium text-zinc-500 transition hover:bg-white hover:text-zinc-700"
+            >
+              Ask again
+            </button>
+            <button
+              type="button"
+              onClick={onDismiss}
+              className="rounded-lg px-2 py-1.5 text-xs font-medium text-zinc-400 transition hover:bg-white hover:text-zinc-600"
+            >
+              Dismiss
+            </button>
           </div>
         </div>
       </div>
