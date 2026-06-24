@@ -17,6 +17,7 @@ export interface WorkItem {
   title: string;
   points: number;
   assignee: string | null; // Developer id, or null when unassigned
+  sourceId: string | null; // request id when imported from Refined
 }
 
 export interface SprintConfig {
@@ -79,6 +80,7 @@ function normalizeItem(i: Partial<WorkItem>): WorkItem {
     title: i.title ?? "",
     points: clampNumber(i.points, 0),
     assignee: i.assignee ?? null,
+    sourceId: i.sourceId ?? null,
   };
 }
 
@@ -193,6 +195,27 @@ function addItem(input: { title: string; points: number }): void {
   write({ ...config, items: [...config.items, item] });
 }
 
+function addItemsFromSource(
+  inputs: Array<{ title: string; sourceId: string; points?: number }>,
+): number {
+  const config = read();
+  const seen = new Set(
+    config.items.map((i) => i.sourceId).filter((s): s is string => !!s),
+  );
+  const fresh = inputs.filter((i) => !seen.has(i.sourceId));
+  if (fresh.length === 0) return 0;
+  const items = fresh.map((i) =>
+    normalizeItem({
+      title: i.title.trim(),
+      points: i.points ?? 3,
+      sourceId: i.sourceId,
+      assignee: null,
+    }),
+  );
+  write({ ...config, items: [...config.items, ...items] });
+  return items.length;
+}
+
 function updateItem(id: string, patch: Partial<WorkItem>): void {
   const config = read();
   write({
@@ -214,13 +237,20 @@ function loadExample(): void {
   const a = normalizeDeveloper({ name: "Anna", weeklyHours: 40, focusPct: 75, ooo: 0 });
   const b = normalizeDeveloper({ name: "Ben", weeklyHours: 32, focusPct: 75, ooo: 1 });
   const c = normalizeDeveloper({ name: "Chris", weeklyHours: 20, focusPct: 75, ooo: 0 });
+  const item = (title: string, points: number, assignee: string | null): WorkItem => ({
+    id: createId(),
+    title,
+    points,
+    assignee,
+    sourceId: null,
+  });
   const items: WorkItem[] = [
-    { id: createId(), title: "Add SSO login (Google Workspace)", points: 8, assignee: a.id },
-    { id: createId(), title: "Fraud alert thresholds fix", points: 5, assignee: a.id },
-    { id: createId(), title: "DATEV export endpoint", points: 5, assignee: b.id },
-    { id: createId(), title: "Dark mode for mobile app", points: 3, assignee: b.id },
-    { id: createId(), title: "SEPA instant transfer screen", points: 8, assignee: c.id },
-    { id: createId(), title: "Audit log for admin actions", points: 3, assignee: null },
+    item("Add SSO login (Google Workspace)", 8, a.id),
+    item("Fraud alert thresholds fix", 5, a.id),
+    item("DATEV export endpoint", 5, b.id),
+    item("Dark mode for mobile app", 3, b.id),
+    item("SEPA instant transfer screen", 8, c.id),
+    item("Audit log for admin actions", 3, null),
   ];
   write({
     name: "Sprint 24",
@@ -234,6 +264,10 @@ function loadExample(): void {
 
 function reset(): void {
   write(defaultConfig());
+}
+
+function restore(config: SprintConfig): void {
+  write(normalize(config));
 }
 
 export function computeCapacity(
@@ -275,10 +309,12 @@ export function useSprint() {
     updateDeveloper,
     removeDeveloper,
     addItem,
+    addItemsFromSource,
     updateItem,
     removeItem,
     assignItem,
     loadExample,
     reset,
+    restore,
   };
 }
