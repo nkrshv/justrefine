@@ -5,6 +5,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Inbox } from "@/components/Inbox";
 import { Refined } from "@/components/Refined";
 import { RefinementMode } from "@/components/RefinementMode";
+import { SprintPlanner } from "@/components/SprintPlanner";
 import { Toaster } from "@/components/Toaster";
 import { cn } from "@/lib/cn";
 import { ACTION_META } from "@/lib/constants";
@@ -12,7 +13,7 @@ import { useRequests } from "@/lib/store";
 import { toast } from "@/lib/toast";
 import type { ResolveInput } from "@/lib/types";
 
-type Tab = "inbox" | "refine" | "refined";
+type Tab = "inbox" | "refine" | "refined" | "plan";
 
 const VIEWS: Record<Tab, { title: string; subtitle: string }> = {
   inbox: {
@@ -26,6 +27,10 @@ const VIEWS: Record<Tab, { title: string; subtitle: string }> = {
   refined: {
     title: "Refined",
     subtitle: "Outcomes and next actions for every request.",
+  },
+  plan: {
+    title: "Plan",
+    subtitle: "Size the sprint by each developer's real capacity.",
   },
 };
 
@@ -77,6 +82,7 @@ export default function AppPage() {
       if (e.key === "1") setTab("inbox");
       else if (e.key === "2") setTab("refine");
       else if (e.key === "3") setTab("refined");
+      else if (e.key === "4") setTab("plan");
     }
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
@@ -124,6 +130,7 @@ export default function AppPage() {
       { tab: "inbox", label: "Capture", count: inboxCount, key: "1" },
       { tab: "refine", label: "Refine", key: "2" },
       { tab: "refined", label: "Refined", count: refinedCount, key: "3" },
+      { tab: "plan", label: "Plan", key: "4" },
     ];
 
   return (
@@ -226,13 +233,15 @@ export default function AppPage() {
               onDelete={handleDelete}
               onExit={() => setTab("refined")}
             />
-          ) : (
+          ) : tab === "refined" ? (
             <Refined
               requests={requests}
               onReopen={handleReopen}
               onDelete={handleDelete}
               onToggleFollowUp={toggleFollowUp}
             />
+          ) : (
+            <SprintPlanner />
           )}
         </main>
       </div>
@@ -310,6 +319,24 @@ function NavIcon({ icon, className }: { icon: Tab; className?: string }) {
           stroke="currentColor"
           strokeWidth="1.2"
           strokeLinejoin="round"
+        />
+      </svg>
+    );
+  }
+  if (icon === "plan") {
+    return (
+      <svg viewBox="0 0 16 16" fill="none" className={className}>
+        <path
+          d="M2.5 13.5V2.5M2.5 13.5h11"
+          stroke="currentColor"
+          strokeWidth="1.4"
+          strokeLinecap="round"
+        />
+        <path
+          d="M5.5 11V7M8 11V4.5M10.5 11V8.5"
+          stroke="currentColor"
+          strokeWidth="1.6"
+          strokeLinecap="round"
         />
       </svg>
     );
