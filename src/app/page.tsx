@@ -16,7 +16,7 @@ const STEPS = [
   {
     emoji: "🎯",
     title: "Refine like Linear",
-    body: "Swipe through a stacked deck one card at a time. AI suggests the call; your team just confirms. Fast, focused, kind of addictive.",
+    body: "Swipe through a stacked deck one card at a time. AI suggests the call and flags the blind spots; your team discusses and confirms. Fast, focused, kind of addictive.",
   },
   {
     emoji: "✅",
@@ -30,6 +30,11 @@ const FEATURES = [
     emoji: "🤖",
     title: "AI Triage Copilot",
     body: "On every request, AI proposes the action — story, refer, decline, needs-info, done — with a one-line rationale, learned from how you've decided before.",
+  },
+  {
+    emoji: "🔎",
+    title: "What am I missing?",
+    body: "One click surfaces 1–3 sharp questions from angles you'd overlook — scope, risk, edge users — so the team pressure-tests a request before deciding. And if there's not enough to go on, it says so instead of making things up.",
   },
   {
     emoji: "🃏",
@@ -69,7 +74,7 @@ const FAQ = [
   },
   {
     q: "What does the AI do, exactly?",
-    a: "It suggests the likely action for each request, drafts user stories with acceptance criteria, and writes handover emails. You always review and edit before anything is saved.",
+    a: "It suggests the likely action for each request, surfaces blind-spot questions your team might miss, drafts user stories with acceptance criteria, and writes handover emails. You always review and edit before anything is saved.",
   },
   {
     q: "Can I use this with confidential data?",
