@@ -453,6 +453,109 @@ export function computeCapacity(
   };
 }
 
+export type HealthStatus = "sustainable" | "watch" | "at_risk";
+
+export interface DevHealth {
+  dev: Developer;
+  capacityPoints: number;
+  assignedPoints: number;
+  ratio: number; // assigned / capacity (0 when no capacity)
+  overPoints: number; // assigned beyond capacity, else 0
+  slackPoints: number; // free capacity, else 0
+  hasCapacity: boolean;
+  itemCount: number;
+  soleDisciplines: Discipline[]; // needed disciplines only this dev can cover
+}
+
+export interface SprintHealth {
+  devs: DevHealth[];
+  committedPoints: number;
+  capacityPoints: number;
+  teamRatio: number;
+  spread: number; // max - min utilisation across devs with capacity
+  overloaded: string[]; // names of devs over their capacity
+  underused: string[]; // names of devs with notable free room
+  baselineStatus: HealthStatus; // deterministic fallback verdict
+}
+
+// Pure, deterministic workload-health metrics. These are the ground-truth
+// numbers; any AI evaluation is fenced to only reference what is computed here.
+export function computeHealth(config: SprintConfig): SprintHealth {
+  const items = config.items;
+  const neededDisc = new Set<Discipline>(
+    items
+      .map((i) => i.discipline)
+      .filter((d): d is Discipline => d !== null),
+  );
+  const capableCount: Record<Discipline, number> = {
+    frontend: 0,
+    backend: 0,
+    devops: 0,
+  };
+  for (const d of DISCIPLINES) {
+    capableCount[d] = config.developers.filter((dev) =>
+      dev.disciplines.includes(d),
+    ).length;
+  }
+
+  const EPS = 1e-6;
+  const devs: DevHealth[] = config.developers.map((dev) => {
+    const cap = computeCapacity(dev, config, items);
+    return {
+      dev,
+      capacityPoints: cap.capacityPoints,
+      assignedPoints: cap.assignedPoints,
+      ratio: cap.ratio,
+      overPoints: Math.max(0, cap.assignedPoints - cap.capacityPoints),
+      slackPoints: Math.max(0, cap.capacityPoints - cap.assignedPoints),
+      hasCapacity: cap.capacityPoints > 0,
+      itemCount: items.filter((i) => i.assignee === dev.id).length,
+      soleDisciplines: DISCIPLINES.filter(
+        (d) =>
+          neededDisc.has(d) &&
+          dev.disciplines.includes(d) &&
+          capableCount[d] === 1,
+      ),
+    };
+  });
+
+  const committedPoints = items
+    .filter((i) => i.assignee)
+    .reduce((s, i) => s + i.points, 0);
+  const capacityPoints = devs.reduce((s, d) => s + d.capacityPoints, 0);
+  const teamRatio = capacityPoints > 0 ? committedPoints / capacityPoints : 0;
+
+  const withCap = devs.filter((d) => d.hasCapacity);
+  const ratios = withCap.map((d) => d.ratio);
+  const spread = ratios.length
+    ? Math.max(...ratios) - Math.min(...ratios)
+    : 0;
+  const overloaded = devs
+    .filter((d) => d.overPoints > EPS)
+    .map((d) => d.dev.name || "Unnamed");
+  const underused = withCap
+    .filter((d) => d.ratio < 0.5 && d.slackPoints > EPS)
+    .map((d) => d.dev.name || "Unnamed");
+
+  let baselineStatus: HealthStatus = "sustainable";
+  if (overloaded.length > 0 || teamRatio > 1 + EPS) {
+    baselineStatus = "at_risk";
+  } else if (spread > 0.4 || (ratios.length > 0 && Math.max(...ratios) > 0.95)) {
+    baselineStatus = "watch";
+  }
+
+  return {
+    devs,
+    committedPoints,
+    capacityPoints,
+    teamRatio,
+    spread,
+    overloaded,
+    underused,
+    baselineStatus,
+  };
+}
+
 export function useSprint() {
   const config = useSyncExternalStore(subscribe, read, () => SERVER_SNAPSHOT);
   return {
