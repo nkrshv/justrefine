@@ -5,6 +5,7 @@ import { cn } from "@/lib/cn";
 import {
   computeBalance,
   computeCapacity,
+  computeHealth,
   devMatchesItem,
   DISCIPLINE_LABEL,
   DISCIPLINES,
@@ -13,7 +14,9 @@ import {
   type Developer,
   type DeveloperCapacity,
   type Discipline,
+  type HealthStatus,
   type SprintConfig,
+  type SprintHealth,
   type WorkItem,
 } from "@/lib/sprint";
 import { useRequests } from "@/lib/store";
@@ -26,6 +29,17 @@ const DRAG_MIME = "application/x-jr-item";
 
 function fmt(n: number): string {
   return Number.isInteger(n) ? String(n) : n.toFixed(1);
+}
+
+function round1(n: number): number {
+  return Math.round(n * 10) / 10;
+}
+
+interface HealthReview {
+  status: HealthStatus;
+  headline: string;
+  people: Array<{ name: string; status: "ok" | "stretched" | "over"; note: string }>;
+  recommendations: string[];
 }
 
 function barColor(ratio: number): string {
@@ -100,6 +114,13 @@ export function SprintPlanner() {
   const [rationaleState, setRationaleState] = useState<
     "idle" | "loading" | "done" | "error"
   >("idle");
+
+  const [healthOpen, setHealthOpen] = useState(false);
+  const [health, setHealth] = useState<HealthReview | null>(null);
+  const [healthState, setHealthState] = useState<
+    "loading" | "done" | "error"
+  >("loading");
+  const healthReq = useRef(0);
 
   const refinedStories = useMemo(
     () =>
@@ -259,6 +280,64 @@ export function SprintPlanner() {
     );
   }
 
+  function openHealth() {
+    const metrics = computeHealth(config);
+    const token = ++healthReq.current;
+    setHealthOpen(true);
+    setHealth(null);
+    setHealthState("loading");
+    const payload = {
+      pointsPerDay: config.pointsPerDay,
+      committedPoints: round1(metrics.committedPoints),
+      capacityPoints: round1(metrics.capacityPoints),
+      teamRatioPct: Math.round(metrics.teamRatio * 100),
+      baselineStatus: metrics.baselineStatus,
+      devs: metrics.devs.map((d) => ({
+        name: d.dev.name || "Unnamed",
+        disciplines: d.dev.disciplines,
+        capacityPoints: round1(d.capacityPoints),
+        assignedPoints: round1(d.assignedPoints),
+        ratioPct: Math.round(d.ratio * 100),
+        ooo: d.dev.ooo,
+        overPoints: round1(d.overPoints),
+        slackPoints: round1(d.slackPoints),
+        itemCount: d.itemCount,
+        soleDisciplines: d.soleDisciplines,
+        items: config.items
+          .filter((i) => i.assignee === d.dev.id)
+          .map((i) => ({
+            title: i.title,
+            points: i.points,
+            discipline: i.discipline,
+          })),
+      })),
+    };
+    fetch("/api/sprint-health", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    })
+      .then(async (r) => {
+        if (!r.ok) throw new Error("health failed");
+        return (await r.json()) as HealthReview;
+      })
+      .then((data) => {
+        if (token !== healthReq.current) return;
+        setHealth(data);
+        setHealthState("done");
+      })
+      .catch(() => {
+        if (token !== healthReq.current) return;
+        setHealthState("error");
+      });
+  }
+
+  function closeHealth() {
+    healthReq.current++;
+    setHealthOpen(false);
+    setHealth(null);
+  }
+
   if (config.developers.length === 0) {
     return (
       <div className="rounded-2xl border border-dashed border-zinc-200 px-4 py-16 text-center">
@@ -321,6 +400,18 @@ export function SprintPlanner() {
               ✨ Auto-balance
             </button>
             <button
+              onClick={openHealth}
+              disabled={config.items.filter((i) => i.assignee).length === 0}
+              title={
+                config.items.filter((i) => i.assignee).length === 0
+                  ? "Assign some stories first"
+                  : "Spot burnout risk before the sprint starts — AI reviews the load for pressure and fairness"
+              }
+              className="rounded-lg border border-zinc-200 bg-white px-3 py-1.5 text-xs font-semibold text-zinc-700 shadow-sm transition hover:bg-zinc-50 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              💚 Health
+            </button>
+            <button
               onClick={() => addDeveloper()}
               className="rounded-lg px-2.5 py-1.5 text-xs font-medium text-accent transition hover:bg-accent/10"
             >
@@ -372,6 +463,16 @@ export function SprintPlanner() {
           rationaleState={rationaleState}
           onApply={handleApplyBalance}
           onClose={closeBalance}
+        />
+      )}
+
+      {healthOpen && (
+        <HealthModal
+          metrics={computeHealth(config)}
+          review={health}
+          state={healthState}
+          onRetry={openHealth}
+          onClose={closeHealth}
         />
       )}
     </div>
@@ -1306,6 +1407,225 @@ function AutoBalanceModal({
             className="rounded-lg bg-accent px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-accent-hover active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-40"
           >
             Apply plan
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+const HEALTH_CHIP: Record<HealthStatus, { label: string; cls: string }> = {
+  sustainable: {
+    label: "Sustainable",
+    cls: "bg-emerald-50 text-emerald-700 ring-emerald-200",
+  },
+  watch: {
+    label: "Watch — someone's stretched",
+    cls: "bg-amber-50 text-amber-700 ring-amber-200",
+  },
+  at_risk: {
+    label: "Burnout risk",
+    cls: "bg-rose-50 text-rose-700 ring-rose-200",
+  },
+};
+
+function personDot(status: "ok" | "stretched" | "over"): string {
+  if (status === "over") return "bg-rose-500";
+  if (status === "stretched") return "bg-amber-500";
+  return "bg-emerald-500";
+}
+
+function HealthModal({
+  metrics,
+  review,
+  state,
+  onRetry,
+  onClose,
+}: {
+  metrics: SprintHealth;
+  review: HealthReview | null;
+  state: "loading" | "done" | "error";
+  onRetry: () => void;
+  onClose: () => void;
+}) {
+  // Status chip is the AI's verdict when available, else the deterministic
+  // baseline — so the colour is always honest about the numbers.
+  const status: HealthStatus = review?.status ?? metrics.baselineStatus;
+  const chip = HEALTH_CHIP[status];
+  const noteByName = new Map(
+    (review?.people ?? []).map((p) => [p.name, p]),
+  );
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-zinc-900/40 p-4 backdrop-blur-sm"
+      onClick={onClose}
+      role="dialog"
+      aria-modal="true"
+      aria-label="Sprint health review"
+    >
+      <div
+        className="my-8 w-full max-w-2xl rounded-2xl border border-zinc-200 bg-white shadow-xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-start justify-between gap-3 border-b border-zinc-100 p-5">
+          <div>
+            <h2 className="text-base font-semibold text-zinc-900">
+              💚 Sprint health
+            </h2>
+            <p className="mt-0.5 text-xs text-zinc-500">
+              An AI read on workload, fairness and burnout risk. Sustainable
+              sprints, not heroics.
+            </p>
+          </div>
+          <button
+            onClick={onClose}
+            aria-label="Close"
+            className="shrink-0 rounded-md px-2 py-1 text-zinc-400 transition hover:bg-zinc-100 hover:text-zinc-600"
+          >
+            ✕
+          </button>
+        </div>
+
+        <div className="max-h-[64vh] overflow-y-auto p-5">
+          <div className="flex flex-wrap items-center gap-2">
+            <span
+              className={cn(
+                "rounded-full px-2.5 py-1 text-xs font-semibold ring-1 ring-inset",
+                chip.cls,
+              )}
+            >
+              {chip.label}
+            </span>
+            <span className="text-xs text-zinc-400">
+              Team {Math.round(metrics.teamRatio * 100)}% committed ·{" "}
+              {fmt(metrics.committedPoints)}/{fmt(metrics.capacityPoints)} pts
+            </span>
+          </div>
+
+          {state === "loading" && (
+            <p className="mt-4 animate-pulse text-sm text-zinc-500">
+              Reviewing the load for pressure and fairness…
+            </p>
+          )}
+          {state === "done" && review?.headline && (
+            <p className="mt-4 text-sm font-medium text-zinc-800">
+              {review.headline}
+            </p>
+          )}
+          {state === "error" && (
+            <p className="mt-4 text-sm text-zinc-600">
+              Couldn&apos;t generate the written read — here are the numbers.{" "}
+              <button
+                onClick={onRetry}
+                className="font-semibold text-accent hover:underline"
+              >
+                Try again
+              </button>
+            </p>
+          )}
+
+          <div className="mt-5 space-y-2.5">
+            {metrics.devs.map((d) => {
+              const ratio = d.ratio;
+              const fillPct = Math.min(100, Math.round(ratio * 100));
+              const person = noteByName.get(d.dev.name || "Unnamed");
+              const dotStatus =
+                d.overPoints > 1e-6
+                  ? "over"
+                  : ratio > 0.85
+                    ? "stretched"
+                    : "ok";
+              return (
+                <div
+                  key={d.dev.id}
+                  className="rounded-lg border border-zinc-100 bg-zinc-50/60 px-3 py-2.5"
+                >
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="flex items-center gap-1.5 font-medium text-zinc-700">
+                      <span
+                        className={cn(
+                          "h-2 w-2 shrink-0 rounded-full",
+                          d.hasCapacity ? personDot(dotStatus) : "bg-zinc-300",
+                        )}
+                      />
+                      {d.dev.name || "Unnamed"}
+                      {d.soleDisciplines.length > 0 && (
+                        <span
+                          title={`Only person who can do ${d.soleDisciplines
+                            .map((x) => DISCIPLINE_LABEL[x])
+                            .join(", ")}`}
+                          className="rounded bg-white px-1 py-0.5 text-[10px] font-medium text-zinc-500 ring-1 ring-inset ring-zinc-200"
+                        >
+                          sole{" "}
+                          {d.soleDisciplines
+                            .map((x) => DISCIPLINE_LABEL[x])
+                            .join("/")}
+                        </span>
+                      )}
+                    </span>
+                    <span
+                      className={cn(
+                        "tabular-nums",
+                        ratio > 1.0001
+                          ? "font-semibold text-rose-600"
+                          : "text-zinc-500",
+                      )}
+                    >
+                      {fmt(d.assignedPoints)} / {fmt(d.capacityPoints)} pts ·{" "}
+                      {Math.round(ratio * 100)}%
+                    </span>
+                  </div>
+                  <div
+                    className={cn(
+                      "mt-1.5 h-1.5 w-full overflow-hidden rounded-full",
+                      ratio > 1.0001 ? "bg-rose-100" : "bg-zinc-100",
+                    )}
+                  >
+                    <div
+                      className={cn("h-full rounded-full", barColor(ratio))}
+                      style={{ width: `${fillPct}%` }}
+                    />
+                  </div>
+                  {person?.note && (
+                    <p className="mt-1.5 text-[11px] text-zinc-600">
+                      {person.note}
+                    </p>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+
+          {state === "done" && (review?.recommendations.length ?? 0) > 0 && (
+            <div className="mt-5">
+              <h3 className="text-xs font-semibold uppercase tracking-wide text-zinc-400">
+                What would help
+              </h3>
+              <ul className="mt-2 space-y-1.5">
+                {review?.recommendations.map((r, i) => (
+                  <li
+                    key={i}
+                    className="flex items-start gap-2 rounded-lg border border-accent/15 bg-accent/5 px-3 py-2 text-sm text-zinc-700"
+                  >
+                    <span className="mt-0.5 shrink-0 text-accent">→</span>
+                    <span>{r}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </div>
+
+        <div className="flex items-center justify-between gap-2 border-t border-zinc-100 p-4">
+          <span className="text-[11px] text-zinc-400">
+            Numbers are computed by the app; the AI only interprets them.
+          </span>
+          <button
+            onClick={onClose}
+            className="rounded-lg border border-zinc-200 bg-white px-4 py-2 text-sm font-medium text-zinc-600 transition hover:bg-zinc-50"
+          >
+            Done
           </button>
         </div>
       </div>
