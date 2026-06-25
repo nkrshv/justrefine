@@ -4,12 +4,27 @@ import { useSyncExternalStore } from "react";
 
 const STORAGE_KEY = "justrefine:sprint:v1";
 
+export type Discipline = "frontend" | "backend" | "devops";
+
+export const DISCIPLINES: Discipline[] = ["frontend", "backend", "devops"];
+
+export const DISCIPLINE_LABEL: Record<Discipline, string> = {
+  frontend: "Frontend",
+  backend: "Backend",
+  devops: "DevOps",
+};
+
+export function isDiscipline(v: unknown): v is Discipline {
+  return v === "frontend" || v === "backend" || v === "devops";
+}
+
 export interface Developer {
   id: string;
   name: string;
   weeklyHours: number; // contracted hours per week, e.g. 40 / 32 / 20
   focusPct: number; // % of time on sprint work (rest = meetings/support)
   ooo: number; // days off / OOO during this sprint (in working days)
+  disciplines: Discipline[]; // what this person can take on (FE+BE = fullstack)
 }
 
 export interface WorkItem {
@@ -18,6 +33,7 @@ export interface WorkItem {
   points: number;
   assignee: string | null; // Developer id, or null when unassigned
   sourceId: string | null; // request id when imported from Refined
+  discipline: Discipline | null; // required discipline, or null = any dev
 }
 
 export interface SprintConfig {
@@ -64,6 +80,13 @@ function clampNumber(value: unknown, fallback: number): number {
   return Number.isFinite(n) ? n : fallback;
 }
 
+function normalizeDisciplines(v: unknown): Discipline[] {
+  // Missing field (legacy data) defaults to fullstack; an explicit empty array
+  // is preserved (a dev that can only take untagged work).
+  if (!Array.isArray(v)) return ["frontend", "backend"];
+  return Array.from(new Set(v.filter(isDiscipline)));
+}
+
 function normalizeDeveloper(d: Partial<Developer>): Developer {
   return {
     id: d.id ?? createId(),
@@ -71,6 +94,7 @@ function normalizeDeveloper(d: Partial<Developer>): Developer {
     weeklyHours: clampNumber(d.weeklyHours, 40),
     focusPct: clampNumber(d.focusPct, 75),
     ooo: clampNumber(d.ooo, 0),
+    disciplines: normalizeDisciplines(d.disciplines),
   };
 }
 
@@ -81,6 +105,7 @@ function normalizeItem(i: Partial<WorkItem>): WorkItem {
     points: clampNumber(i.points, 0),
     assignee: i.assignee ?? null,
     sourceId: i.sourceId ?? null,
+    discipline: isDiscipline(i.discipline) ? i.discipline : null,
   };
 }
 
@@ -234,23 +259,48 @@ function assignItem(itemId: string, assignee: string | null): void {
 }
 
 function loadExample(): void {
-  const a = normalizeDeveloper({ name: "Anna", weeklyHours: 40, focusPct: 75, ooo: 0 });
-  const b = normalizeDeveloper({ name: "Ben", weeklyHours: 32, focusPct: 75, ooo: 1 });
-  const c = normalizeDeveloper({ name: "Chris", weeklyHours: 20, focusPct: 75, ooo: 0 });
-  const item = (title: string, points: number, assignee: string | null): WorkItem => ({
+  const a = normalizeDeveloper({
+    name: "Anna",
+    weeklyHours: 40,
+    focusPct: 75,
+    ooo: 0,
+    disciplines: ["frontend", "backend"],
+  });
+  const b = normalizeDeveloper({
+    name: "Ben",
+    weeklyHours: 32,
+    focusPct: 75,
+    ooo: 1,
+    disciplines: ["backend"],
+  });
+  const c = normalizeDeveloper({
+    name: "Chris",
+    weeklyHours: 20,
+    focusPct: 75,
+    ooo: 0,
+    disciplines: ["frontend"],
+  });
+  const item = (
+    title: string,
+    points: number,
+    assignee: string | null,
+    discipline: Discipline | null,
+  ): WorkItem => ({
     id: createId(),
     title,
     points,
     assignee,
     sourceId: null,
+    discipline,
   });
   const items: WorkItem[] = [
-    item("Add SSO login (Google Workspace)", 8, a.id),
-    item("Fraud alert thresholds fix", 5, a.id),
-    item("DATEV export endpoint", 5, b.id),
-    item("Dark mode for mobile app", 3, b.id),
-    item("SEPA instant transfer screen", 8, c.id),
-    item("Audit log for admin actions", 3, null),
+    item("Add SSO login (Google Workspace)", 8, a.id, "backend"),
+    item("Fraud alert thresholds fix", 5, a.id, "backend"),
+    item("DATEV export endpoint", 5, b.id, "backend"),
+    item("Dark mode for mobile app", 3, b.id, "frontend"),
+    item("SEPA instant transfer screen", 8, c.id, "frontend"),
+    item("Audit log for admin actions", 3, null, "backend"),
+    item("CI pipeline hardening", 5, null, "devops"),
   ];
   write({
     name: "Sprint 24",
@@ -264,6 +314,109 @@ function loadExample(): void {
 
 function reset(): void {
   write(defaultConfig());
+}
+
+export function devMatchesItem(dev: Developer, item: WorkItem): boolean {
+  if (!item.discipline) return true; // untagged work can go to anyone
+  return dev.disciplines.includes(item.discipline);
+}
+
+export interface BalanceResult {
+  mode: "fill" | "rebalance";
+  placed: Array<{ itemId: string; devId: string }>;
+  leftover: Array<{ itemId: string; reason: string }>;
+}
+
+function fmtPts(n: number): string {
+  return Number.isInteger(n) ? String(n) : n.toFixed(1);
+}
+
+// Deterministic capacity- and discipline-aware allocator. The math here is
+// fully deterministic so the result is always valid and never hallucinated;
+// any AI layer only adds human-readable rationale on top.
+export function computeBalance(
+  config: SprintConfig,
+  mode: "fill" | "rebalance",
+): BalanceResult {
+  const slots = config.developers.map((dev) => {
+    const capacity = computeCapacity(dev, config, config.items).capacityPoints;
+    const load =
+      mode === "fill"
+        ? config.items
+            .filter((i) => i.assignee === dev.id)
+            .reduce((s, i) => s + i.points, 0)
+        : 0;
+    return { dev, capacity, load };
+  });
+
+  const pool =
+    mode === "fill"
+      ? config.items.filter((i) => !i.assignee)
+      : [...config.items];
+
+  const placed: Array<{ itemId: string; devId: string }> = [];
+  const leftover: Array<{ itemId: string; reason: string }> = [];
+  const EPS = 1e-6;
+
+  for (const item of pool) {
+    const eligible = slots.filter((s) => devMatchesItem(s.dev, item));
+    const label = item.discipline ? DISCIPLINE_LABEL[item.discipline] : null;
+
+    if (eligible.length === 0) {
+      leftover.push({
+        itemId: item.id,
+        reason: label
+          ? `No ${label} developer on the team`
+          : "No developers on the team",
+      });
+      continue;
+    }
+
+    // Worst-fit: give the story to the eligible dev with the most free room,
+    // which spreads load and keeps people green rather than stacking one.
+    const fits = eligible
+      .filter((s) => s.load + item.points <= s.capacity + EPS)
+      .sort((a, b) => b.capacity - b.load - (a.capacity - a.load));
+
+    if (fits.length === 0) {
+      const maxCap = Math.max(...eligible.map((s) => s.capacity));
+      if (item.points > maxCap + EPS) {
+        leftover.push({
+          itemId: item.id,
+          reason: `Too big to fit one person (${fmtPts(item.points)} pts) — consider splitting`,
+        });
+      } else {
+        leftover.push({
+          itemId: item.id,
+          reason: label
+            ? `No ${label} developer has free capacity`
+            : "No developer has free capacity",
+        });
+      }
+      continue;
+    }
+
+    const chosen = fits[0];
+    chosen.load += item.points;
+    placed.push({ itemId: item.id, devId: chosen.dev.id });
+  }
+
+  return { mode, placed, leftover };
+}
+
+function applyBalance(result: BalanceResult): void {
+  const config = read();
+  const placedMap = new Map(result.placed.map((p) => [p.itemId, p.devId]));
+  const leftoverSet = new Set(result.leftover.map((l) => l.itemId));
+  write({
+    ...config,
+    items: config.items.map((i) => {
+      if (placedMap.has(i.id))
+        return { ...i, assignee: placedMap.get(i.id) as string };
+      if (leftoverSet.has(i.id)) return { ...i, assignee: null };
+      return i;
+    }),
+  });
 }
 
 function restore(config: SprintConfig): void {
@@ -316,5 +469,6 @@ export function useSprint() {
     loadExample,
     reset,
     restore,
+    applyBalance,
   };
 }
