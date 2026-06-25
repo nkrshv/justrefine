@@ -11,7 +11,7 @@ const STEPS = [
   {
     emoji: "📥",
     title: "Capture in seconds",
-    body: "Paste a wall of raw meeting notes and they auto-split into clean, de-duped requests — title, source, urgency, tags. No more lost asks.",
+    body: "Paste a wall of raw meeting notes. They auto-split into clean, de-duped requests with title, source, urgency and tags. No more lost asks.",
   },
   {
     emoji: "🎯",
@@ -29,17 +29,17 @@ const FEATURES = [
   {
     emoji: "🤖",
     title: "AI Triage Copilot",
-    body: "On every request, AI proposes the action — story, refer, decline, needs-info, done — with a one-line rationale, learned from how you've decided before.",
+    body: "On every request, AI proposes the action: story, refer, decline, needs-info or done. You get a one-line rationale, learned from how you've decided before.",
   },
   {
     emoji: "🔎",
     title: "What am I missing?",
-    body: "One click surfaces 1–3 sharp questions from angles you'd overlook — scope, risk, edge users — so the team pressure-tests a request before deciding. And if there's not enough to go on, it says so instead of making things up.",
+    body: "One click surfaces 1–3 sharp questions from angles you'd overlook: scope, risk, edge users. The team pressure-tests a request before deciding. And if there's not enough to go on, it says so instead of making things up.",
   },
   {
-    emoji: "🃏",
-    title: "Linear-style refine deck",
-    body: "Cards stack, swipe away when resolved, and the next one promotes into focus. Refinement that actually feels good to run.",
+    emoji: "💚",
+    title: "Anti-burnout sprint health",
+    body: "Plan the sprint by each developer's real capacity, then let AI check the load for pressure and fairness. It flags who's overloaded, who has room, and the one move that protects your team. Sustainable sprints, not heroics.",
   },
   {
     emoji: "📝",
@@ -49,7 +49,7 @@ const FEATURES = [
   {
     emoji: "📋",
     title: "Follow-up checklist",
-    body: "The outcomes page isn't a dashboard — it's a to-do list of what's still on you, with a quiet progress bar and a one-click action per row.",
+    body: "The outcomes page isn't a dashboard. It's a to-do list of what's still on you, with a quiet progress bar and a one-click action per row.",
   },
   {
     emoji: "🔒",
@@ -61,15 +61,15 @@ const FEATURES = [
 const FAQ = [
   {
     q: "Do I need to create an account?",
-    a: "Nope. justrefine runs entirely in your browser — open the app and start triaging. Your requests are stored locally on your device.",
+    a: "Nope. justrefine runs entirely in your browser. Open the app and start triaging. Your requests are stored locally on your device.",
   },
   {
     q: "Is it really free?",
-    a: "Yes. The whole triage workflow — capture, refine, AI drafting, follow-ups — is free to use right now.",
+    a: "Yes. The whole workflow is free right now: capture, refine, AI drafting, follow-ups and sprint planning.",
   },
   {
     q: "What does the AI do, exactly?",
-    a: "It suggests the likely action for each request, surfaces blind-spot questions your team might miss, drafts user stories with acceptance criteria, and writes handover emails. You always review and edit before anything is saved.",
+    a: "It suggests the likely action for each request, surfaces blind-spot questions your team might miss, drafts user stories with acceptance criteria, writes handover emails, and reviews your sprint for burnout risk and uneven load. You always review and edit before anything is saved.",
   },
   {
     q: "Can I use this with confidential data?",
@@ -126,7 +126,7 @@ export default function Home() {
             </h1>
             <p className="mx-auto mt-6 max-w-xl text-lg text-zinc-600">
               justrefine turns a messy pile of meeting requests into a clean,
-              refined backlog — capture in seconds, triage as a team with an AI
+              refined backlog. Capture in seconds, triage as a team with an AI
               copilot, and never drop a follow-up again.
             </p>
             <div className="mt-9 flex flex-col items-center justify-center gap-3 sm:flex-row">
@@ -134,7 +134,7 @@ export default function Home() {
                 href="/app"
                 className="w-full rounded-xl bg-accent px-7 py-3.5 text-base font-semibold text-white shadow-lg shadow-accent/25 transition hover:bg-accent-hover active:scale-[0.98] sm:w-auto"
               >
-                Start triaging — it&apos;s free
+                Start triaging for free
               </Link>
               <a
                 href="#how-it-works"
@@ -260,7 +260,7 @@ export default function Home() {
             <div className="mt-6 space-y-4 text-[15px] leading-relaxed text-zinc-700">
               <p>
                 I&apos;m a product owner. I&apos;d walk out of every stakeholder
-                meeting with a dozen requests and no good place to put them — so
+                meeting with a dozen requests and no good place to put them. So
                 they&apos;d scatter across Slack, email and sticky notes, and the
                 ones that mattered would quietly disappear.
               </p>
@@ -321,7 +321,7 @@ export default function Home() {
                 href="/app"
                 className="inline-block rounded-xl bg-accent px-8 py-4 text-base font-semibold text-white shadow-lg shadow-accent/25 transition hover:bg-accent-hover active:scale-[0.98]"
               >
-                Open justrefine — it&apos;s free →
+                Open justrefine for free →
               </Link>
             </div>
           </div>
@@ -372,7 +372,7 @@ function HeroMock() {
             <span className="font-medium text-accent">85%</span>
           </div>
           <p className="mt-1.5 text-sm text-zinc-700">
-            Clear, valuable feature — turn it into a backlog item.
+            Clear, valuable feature. Turn it into a backlog item.
           </p>
           <div className="mt-2 flex items-center gap-2">
             <span className="rounded-lg bg-accent px-3 py-1.5 text-xs font-semibold text-white">
